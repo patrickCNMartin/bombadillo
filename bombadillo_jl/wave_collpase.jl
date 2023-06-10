@@ -10,3 +10,7 @@ end
 function prune_rules(rule_set)
 
 end
+
+function collapse_space(graph)
+
+end
