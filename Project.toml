@@ -1,0 +1,16 @@
+name = "Bombadillo"
+uuid = "c63cb453-85e6-4fe8-b79d-dfe0bc8a1f63"
+authors = ["Patrick C.N. Martin <patrick.martin@cshs.org>"]
+version = "0.1.0"
+
+[deps]
+DelaunayTriangulation = "927a84f5-c5f4-47a5-9785-b46e178433df"
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
+
+[compat]
+DelaunayTriangulation = "1.6.4"
+Distributions = "0.25.119"
+LinearAlgebra = "1.11.0"
+Plots = "1.40.13"
