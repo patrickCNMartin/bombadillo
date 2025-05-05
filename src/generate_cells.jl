@@ -42,7 +42,9 @@ function add_cells(
     set_size::Int64 = 10,
     max_shift::Int64 = 500,
     max_diffusion::Int64 = 5,
-    dampening::Float64 = 0.1)::Tissue
+    wave_damp::Float64 = 0.1,
+    density_damp::Float64 = 0.1,
+    noise::Float64 = 10)::Tissue
     types = sort(unique(collect(values(tissue.cell_labels))))
     type_sets = add_gene_set(types, n_genes = n_genes, set_size = set_size)
     type_shifts = add_shift(type_sets, max_shift = max_shift, n_genes = n_genes)
@@ -59,7 +61,9 @@ function add_cells(
         wave_sets = wave_sets,
         wave_shifts = wave_shifts,
         wave_diffusion = max_diffusion,
-        wave_damp = dampening)
+        wave_damp = wave_damp,
+        density_damp = density_damp,
+        noise = noise)
     tissue.base_cell_types = base_cell
     return tissue
 end

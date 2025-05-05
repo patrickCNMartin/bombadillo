@@ -45,23 +45,27 @@ end
 function get_neighborhood_graph(
     graph::Dict{Int64,Set{Int64}},
     initial_index::Int;
-    depth::Int = 3)::Set{Int}
+    depth::Int = 3)::Tuple{Vector{Int64},Vector{Int64}}
 
-    visited = Set{Int}([initial_index])
+    
     current_level = Set{Int}([initial_index])
-
-    for _ in 1:depth
-        next_level = Set{Int}()
+    visited_set = Set([initial_index])
+    visited = Vector{Int64}([initial_index])
+    dist = Vector{Int64}([0])
+    for d in 1:depth
+        next_level = Int[]
         for u in current_level
             for neighbor in graph[u]
-                if neighbor ∉ visited
-                    push!(next_level, neighbor)
+                if neighbor ∉ visited_set
+                    push!(visited_set, neighbor)
                     push!(visited, neighbor)
+                    push!(dist, d)
+                    push!(next_level, neighbor)
                 end
             end
         end
         current_level = next_level
         isempty(current_level) && break
     end
-    return visited
+    return visited, dist
 end

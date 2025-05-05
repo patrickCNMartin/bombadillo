@@ -87,7 +87,7 @@ function add_circles(
         if !as_hotspots
             local_depth = rand(depth_range[1]:depth_range[2])
             if add_layers == 0
-                neighborhood = get_neighborhood_graph(
+                neighborhood, _ = get_neighborhood_graph(
                     graph,
                     ci,
                     depth = local_depth)
@@ -103,7 +103,7 @@ function add_circles(
                 
                 for layer_idx in eachindex(layer_depth)
                     current_depth = layer_depth[layer_idx]
-                    current_neighborhood = get_neighborhood_graph(
+                    current_neighborhood, _ = get_neighborhood_graph(
                         graph,
                         ci,
                         depth = current_depth)

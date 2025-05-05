@@ -21,7 +21,8 @@ Base.@kwdef struct BaseCellType
     wave_shifts::Union{Dict, Nothing} = nothing
     wave_diffusion::Union{Int64, Nothing} = nothing
     wave_damp::Union{Float64, Nothing} = nothing
-    noise::Union{Dict, Nothing} = nothing
+    density_damp::Union{Float64, Nothing} = nothing
+    noise::Union{Float64, Nothing} = nothing
 end
 
 function Base.show(io::IO, ::MIME"text/plain",x::BaseCellType)
