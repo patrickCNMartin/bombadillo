@@ -6,6 +6,7 @@ module Bombadillo
 
 include("tissue_structs.jl")
 include("graphs.jl")
+include("utils.jl")
 include("generate_cells.jl")
 include("generate_tissue.jl")
 include("generate_ecosystems.jl")
@@ -16,6 +17,9 @@ export Tissue,
     create_cell_mesh,
     add_circles,
     add_cells,
-    plot_tissue_2d
-    get_neighborhood_graph
+    add_ecosystems,
+    plot_tissue_2d,
+    get_neighborhood_graph,
+    compute_shifts,
+    ecosystem_cell_types
 end

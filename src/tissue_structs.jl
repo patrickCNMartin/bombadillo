@@ -19,14 +19,21 @@ Base.@kwdef struct BaseCellType
     contact_shifts::Union{Dict, Nothing} = nothing
     wave_sets::Union{Dict, Nothing} = nothing
     wave_shifts::Union{Dict, Nothing} = nothing
-    wave_diffusion::Union{Int64, Nothing} = nothing
-    wave_damp::Union{Float64, Nothing} = nothing
-    density_damp::Union{Float64, Nothing} = nothing
-    noise::Union{Float64, Nothing} = nothing
+    wave_diffusion::Int64 = 5
+    wave_damp::Float64 = 0.85
+    density_damp::Float64 = 0.2
+    noise::Float64 = 10.0
+    n_genes::Int64 = 2000
 end
 
 function Base.show(io::IO, ::MIME"text/plain",x::BaseCellType)
     println(io,"BaseCellType Struct:")
+end
+
+Base.@kwdef mutable struct Cell
+    type_shift::Union{AbstractVector, Nothing} = nothing
+    contact_shift::Union{AbstractVector, Nothing} = nothing
+    wave_shift::Union{AbstractVector, Nothing} = nothing
 end
 
 Base.@kwdef mutable struct Tissue
@@ -36,7 +43,7 @@ Base.@kwdef mutable struct Tissue
     distances::Union{AbstractVector, Nothing} = nothing
     barcodes::Union{AbstractVector, Nothing} = nothing
     cell_labels::Union{Dict, Nothing} = nothing
-    ecosystems::Union{AbstractVector, Nothing} = nothing
+    ecosystems::Union{Dict, Nothing} = nothing
     base_cell_types::Union{BaseCellType, Nothing} = nothing
     mesh::Union{DelaunayTriangulation.Triangulation, Nothing} = nothing # TMP will remove later
 end
