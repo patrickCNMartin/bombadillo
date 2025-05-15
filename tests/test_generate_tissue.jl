@@ -1,4 +1,4 @@
-include("../src/MyModule.jl")
+include("../src/Bombadillo.jl")
 using .MyModule
 
 @testset "Tissue tests" begin

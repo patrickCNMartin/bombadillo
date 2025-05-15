@@ -4,19 +4,20 @@ using LinearAlgebra
 
 
 function create_cell_mesh(
-    tissue::Union{Tissue, Nothing} = nothing,
-    max_cells::Int = 5000,
-    min_angle::Float64 = 30.0,
-    max_angle::Float64 = 120.0,
-    max_area::Float64 = 0.01,
-    coordinate_range::Tuple{Int,Int} = (0,1),
-    init_factor::Float64 = 0.2)::Tissue
+    base_tissue::Union{BaseTissue, Nothing} = nothing)::Tissue
     #-------------------------------------------------------------------------#
     # First create a tissue structure if not already done
     #-------------------------------------------------------------------------#
-    if isnothing(tissue)
-        tissue = Tissue()
+    if isnothing(base_tissue)
+        base_tissue = BaseTissue()
     end
+    tissue = Tissue()
+    max_cells = base_tissue.max_cells
+    min_angle = base_tissue.min_angle
+    max_angle = base_tissue.max_angle
+    max_area = base_tissue.max_area
+    coordinate_range = base_tissue.coordinate_range
+    init_factor = base_tissue.init_factor
     #-------------------------------------------------------------------------#
     # Generate coordinates using specified ranges
     # Create coordinates from intial random points 
@@ -25,6 +26,7 @@ function create_cell_mesh(
         coordinate_range,
         max_cells,
         init_factor)
+    tissue.seed_points = deepcopy(coordinates)
     #-------------------------------------------------------------------------#
     # Now we generate triangles from the intial Set
     # and refine to the max number of cells and other params
@@ -41,22 +43,22 @@ function create_cell_mesh(
     #-------------------------------------------------------------------------#
     # Generate graph from mesh
     #-------------------------------------------------------------------------#
-    edges, niche, points, distances = spatial_graph(tri)
+    niche, points, distances = spatial_graph(tri)
 
     #-------------------------------------------------------------------------#
     # rebuild
     #-------------------------------------------------------------------------#
-    tissue.cell_mesh = edges
     tissue.cell_graph = niche
     tissue.distances = distances
     tissue.coordinates = points
     tissue.barcodes = string.("cell_", 1:length(points))
     tissue.mesh = tri
+    tissue.base_tissue = base_tissue
     return tissue
 end
 
 function generate_coordinates(
-    coordinate_range::Tuple{Int,Int} = (0,1),
+    coordinate_range::Tuple{Float64,Float64} = (0,1),
     max_cells::Int = 5000,
     init_factor::Float64 = 0.1)::AbstractVector
     n_cells = Int(ceil(max_cells * init_factor))
@@ -66,57 +68,84 @@ function generate_coordinates(
     return coordinates
 end
 
+function get_domains(base_tissue::BaseTissue)
+    if base_tissue.domain_type isa Tuple{String,Int,Int}
+        domains = [base_tissue.domain_type]
+    else
+        domains = base_tissue.domain_type
+    end
+    return domains
+end
 
+
+function add_domains(
+    tissue::Tissue)::Tissue
+    domains = get_domains(tissue.base_tissue)
+    depth_range = tissue.base_tissue.depth_range
+    init_labels = ones(length(tissue.cell_graph))
+    graph = tissue.cell_graph
+    for (d, n,l) in domains
+        if d == "circle"
+            init_labels = add_circles(
+                init_labels,
+                graph,
+                n_circles = n,
+                n_layers = l,
+                depth_range = depth_range)
+        else
+            throw(DomainError("Unsupported domain type - Choose from => circle"))
+        end
+    end
+    tissue.cell_labels = Int.(init_labels)
+    return tissue
+end
 
 
 function add_circles(
-    tissue::Tissue;
+    init_labels::Vector,
+    graph::Vector;
     n_circles::Int = 5,
-    add_layers::Int = 0,
+    n_layers::Int = 0,
     depth_range::Tuple{Int,Int} = (3,10),
-    as_hotspots::Bool =  false)::Tissue
-    graph = tissue.cell_graph
-    #-------------------------------------------------------------------------#
-    # Get points that will serve as center for circles
-    # If as_hotspots = true, then we only those will be return
-    #-------------------------------------------------------------------------#
-    init_labels = Dict(k => 1 for k in keys(graph))
-    init_cell = 2
-    center_indices = rand(keys(graph), n_circles)
+    )::Vector 
+
+    init_cell = maximum(init_labels) + 1
+    center_indices = rand(1:length(init_labels), n_circles)
     for ci in center_indices
-        if !as_hotspots
-            local_depth = rand(depth_range[1]:depth_range[2])
-            if add_layers == 0
-                neighborhood, _ = get_neighborhood_graph(
+        local_depth = rand(depth_range[1]:depth_range[2])
+        if n_layers == 0
+            neighborhood, _ = get_neighborhood_graph(
+                graph,
+                ci,
+                depth = local_depth)
+            
+            init_labels[neighborhood] .= init_cell
+            init_cell += 1
+        else
+            if n_layers >= local_depth
+                layer_depth = 1:local_depth
+            else
+                layer_depth = round.(Int, range(1, local_depth, length=n_layers+1))
+            end
+            prev_neighborhood = Set([ci])  
+                
+            for layer_idx in eachindex(layer_depth)
+                current_depth = layer_depth[layer_idx]
+                current_neighborhood, _ = get_neighborhood_graph(
                     graph,
                     ci,
-                    depth = local_depth)
-                foreach(k -> init_labels[k] = init_cell, neighborhood)
-                init_cell += 1
-            else
-                if add_layers >= local_depth
-                    layer_depth = 1:local_depth
-                else
-                    layer_depth = round.(Int, range(1, local_depth, length=add_layers+1))
-                end
-                prev_neighborhood = Set([ci])  
-                
-                for layer_idx in eachindex(layer_depth)
-                    current_depth = layer_depth[layer_idx]
-                    current_neighborhood, _ = get_neighborhood_graph(
-                        graph,
-                        ci,
-                        depth = current_depth)
+                    depth = current_depth)
                     
-                    layer_nodes = setdiff(collect(current_neighborhood), collect(prev_neighborhood))
+                layer_nodes = setdiff(collect(current_neighborhood), collect(prev_neighborhood))
                 
-                    foreach(k -> init_labels[k] = init_cell, layer_nodes)
-                    prev_neighborhood = current_neighborhood
-                    init_cell += 1
-                end
+                
+                init_labels[layer_nodes] .= init_cell
+                prev_neighborhood = current_neighborhood
+                init_cell += 1
             end
         end
     end
-    tissue.cell_labels = init_labels
-    return tissue
+    return init_labels
 end
+
+

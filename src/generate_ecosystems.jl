@@ -1,11 +1,12 @@
 
 
 function get_ecosystem(
-    local_niche::AbstractVector{Int},
-    dist::AbstractVector{Int},
-    cell_labels::Dict,
-    base_cells::BaseCellType)::AbstractMatrix
-    ecosystem =  zeros(length(base_cells.types), base_cells.wave_diffusion)
+    local_niche::Vector{Int},
+    dist::Vector{Int};
+    cell_labels::Vector{Int64},
+    types::Vector,
+    wave_diffusion::Int64)::AbstractMatrix
+    ecosystem =  zeros(length(types), wave_diffusion)
     for cell in eachindex(local_niche)
         depth_index = dist[cell]
         depth_index == 0 && continue
@@ -15,168 +16,120 @@ function get_ecosystem(
     return ecosystem
 end
 
-# function apply_shift(
-#     shifts::AbstractVector{Int},
-#     noise::Float64,
-#     damp::AbstractVector{Float64})
-#     for i in eachindex(shifts)
-#         local_shift = 0
-#         for d in damp
-#             local_shift += apply_noise(shifts[i] * d, noise)
-#         end
-#             new_shifts[i] = sum(local_shift)
-#         end
-        
-#     return new_shifts
-# end
-
-function compute_type_shift(
-    type_shifts::Dict,
-    noise::Float64)
-    new_shifts = Dict(k => Vector{Int}() for k in keys(type_shifts))
-    for (k, v) in type_shifts
-        local_shift = similar(v)
-        for s in eachindex(local_shift)
-            local_shift[s] = compute_shifts(v[s], noise)
-        end
-        new_shifts[k] = local_shift
-    end
-    return new_shifts
-end
-
-
-function compute_contact_shift(
-    ecosystem::AbstractMatrix,
-    contact_shifts::Dict,
-    noise::Float64,
-    density_damp::Float64)
-    contact_cells = ecosystem[:,1]
-    new_shifts = Dict(k => Vector{Int}() for k in keys(contact_shifts))
-    for (k, v) in contact_shifts
-        local_shift = similar(v)
-        for s in eachindex(local_shift)
-            damp = density_decay(contact_cells[k], density_damp)
-            for d in damp
-                if round(v[s] * d) == 0
-                    break
-                end
-                local_shift[s] += compute_shifts(v[s] * d, noise)
-            end
-        end
-        new_shifts[k] = local_shift
-    end
-    return new_shifts
-end
-
-function compute_wave_shift(
-    ecosystem::AbstractMatrix,
-    wave_shifts::Dict,
-    noise::Float64,
+function aggregate_shift(
+    shift_set::Int64,
+    ecosystem::Vector{Float64},
+    shift_type::String,
     density_damp::Float64,
     wave_damp::Float64)
-    new_shifts = Dict(k => Vector{Int}() for k in keys(wave_shifts))
-    for (k, v) in wave_shifts
-        local_shift = similar(v)
-        for depth in axes(ecosystem, 2)
-            cell_dense = ecosystem[k,depth]
-            damp_w = wave_decay(depth, wave_damp)
-            for s in eachindex(local_shift)
-                damp_d = density_decay(cell_dense, density_damp)
-                for d in damp_d
-                    if round(v[s] * (d * damp_w)) == 0
-                        break
-                    end
-                    local_shift[s] += compute_shifts(v[s] * (d * damp_w) , noise)
-                end
-            end
-        end
-        new_shifts[k] = local_shift
+    if shift_type == "type_shifts"
+        shift = shift_set
+    elseif shift_type == "contact_shifts"
+        density = ecosystem[1]
+        shift = density_decay(density, shift_set, density_damp)
+    elseif shift_type == "wave_shifts"
+        shift = wave_decay(ecosystem, shift_set, wave_damp, density_damp)
+    else
+        throw(DomainError("Unrecognized type shift - Select from type_shifts, contact_shifts, wave_shifts"))
     end
-    return new_shifts
+    return shift
 end
 
+
+
+
 function apply_shift(
-    gene_vec::AbstractVector{Int},
-    gene_set::Dict{K, Vector{Int}},
-    gene_shift::Dict{K, Vector{Int}}) where K
-    
-    for cell in keys(gene_set)
-        genes = gene_set[cell]
-        shifts = gene_shift[cell]
-        for (gene_array, shift_array) in zip(genes, shifts)
-            local_index = gene_array
-            local_shift = shift_array
-            if local_index + local_shift < 1
-                shift_array = -local_index + 1
-            end
-            if local_index + local_shift > maximum(gene_vec)
-                local_shift =  maximum(gene_vec) - local_index
-            end
-            gene_vec[local_index] = local_index + local_shift
-        end
+    gene_vec::Vector{Int64},
+    gene::Int64,
+    shift::Int64) 
+    if gene + shift < 1
+        shift = -gene + 1
     end
-    
+    if gene + shift > maximum(gene_vec)
+        shift =  maximum(gene_vec) - gene
+    end
+    gene_vec[gene] = gene + shift
     return gene_vec
 end
 
-function aggregate_shift(
-    type_shift::Dict,
-    type_set::Dict,
-    contact_shift::Dict,
-    contact_set::Dict,
-    wave_shift::Dict,
-    wave_set::Dict,
-    n_genes::Int64)
-    gene_vector = collect(1:n_genes)
-    gene_vector = apply_shift(gene_vector, type_set, type_shift)
-    gene_vector = apply_shift(gene_vector, contact_set, contact_shift)
-    gene_vector = apply_shift(gene_vector, wave_set, wave_shift)
-    return gene_vector
-end
+
 
 function ecosystem_shifts(
-    ecosystem::AbstractMatrix,
-    base_cells::BaseCellType)
-    noise = base_cells.noise
+    base_cells::BaseCells,
+    cell_label::Int64,
+    ecosystem::Matrix;
+    shift_type::Vector{String},
+    density_damp::Float64,
+    wave_damp::Float64,
+    n_genes::Int64)
+    
+    gene_set = collect(1:n_genes)
+    for type in shift_type
+        local_type = getfield(base_cells, Symbol(type))
+        for cell in keys(local_type)
+            if type == "type_shifts" && Int(cell_label) ≠ Int(cell)
+                continue
+            end
+            local_noise = getindex(local_type[cell],1).noise
+            local_set = getindex(local_type[cell],2)
+            local_shift = getindex(local_type[cell],3)
+            local_cell = ecosystem[cell,:]
+            
+            for (gene, shift) in zip(local_set, local_shift)
+                local_shift = aggregate_shift(shift, local_cell, type, density_damp, wave_damp)
+                local_shift = add_noise(local_shift, local_noise)
+                gene_set = apply_shift(gene_set, gene, local_shift)
+            end
+        end
+    end
+    return gene_set
+end
+
+
+
+function add_ecosystems(
+    tissue::Tissue,
+    base_cells::BaseCells)::Tissue
+    cell_graph = tissue.cell_graph
+    cell_labels = tissue.cell_labels
+    wave_diffusion = base_cells.wave_diffusion
+    types = base_cells.types
     density_damp = base_cells.density_damp
     wave_damp = base_cells.wave_damp
     n_genes = base_cells.n_genes
+    shift_type = base_cells.shift_type
+    ecosystems = Vector{Tuple{Matrix,Vector{Float64}}}(undef,length(cell_labels))
+    for eco in eachindex(ecosystems)
+        local_niche, dist = get_neighborhood_graph(
+            cell_graph,
+            eco,
+            depth = wave_diffusion)
 
-    type_shift = base_cells.type_shifts
-    type_set = base_cells.type_sets
-    type_shift = compute_type_shift(type_shift, noise)
-
-
-    contact_shift = base_cells.contact_shifts
-    contact_set = base_cells.contact_sets
-    contact_shift = compute_contact_shift(ecosystem,
-        contact_shift,
-        noise,
-        density_damp)
-
-    wave_shift = base_cells.wave_shifts
-    wave_set = base_cells.wave_sets
-    wave_shift = compute_wave_shift(ecosystem,
-        wave_shift,
-        noise,
-        density_damp,
-        wave_damp)
-
-    cell_shift = aggregate_shift(type_shift,
-        type_set,
-        contact_shift,
-        contact_set,
-        wave_shift,
-        wave_set,
-        n_genes)
-    return cell_shift
-    
+        local_eco = get_ecosystem(
+            local_niche,
+            dist,
+            cell_labels = cell_labels,
+            types = types,
+            wave_diffusion = wave_diffusion)
+        
+        local_shift = ecosystem_shifts(
+            base_cells,
+            cell_labels[eco],
+            local_eco,
+            shift_type = shift_type,
+            density_damp = density_damp,
+            wave_damp = wave_damp,
+            n_genes = n_genes)
+        ecosystems[eco] = (local_eco,local_shift)
+    end
+    tissue.ecosystems = ecosystems
+    return tissue
 end
 
 function collapse_ecosystem(
     ecosystem::Matrix{Float64},
-    collapse_to::Union{Int64, String})
-    if typeof(collapse_to) == Int
+    collapse_to::Int64)
+    if collapse_to > 0
         return round.(ecosystem ./ collapse_to) .* collapse_to
     else
         return map(x -> x > 0 ? one(x) : zero(x), ecosystem)
@@ -184,31 +137,65 @@ function collapse_ecosystem(
     
 end
 
-function add_ecosystems(
-    tissue::Tissue;
-    collapse_to::Union{Int64, String} = 1)::Tissue
-    base_cells = tissue.base_cell_types
-    ecosystems = Dict(k => (zeros(0, 0), Float64[]) for k in keys(tissue.cell_graph))
-    for eco in keys(ecosystems)
-        local_niche, dist = get_neighborhood_graph(
-            tissue.cell_graph,
-            eco,
-            depth = base_cells.wave_diffusion)
-        local_eco = get_ecosystem(
-            local_niche,
-            dist,
-            tissue.cell_labels,
-            base_cells)
-        if !isnothing(collapse_to)
-            local_eco = collapse_ecosystem(local_eco, collapse_to)
-        end
-        local_shift = ecosystem_shifts(
-            local_eco,
-            base_cells)
-        ecosystems[eco] = (local_eco,local_shift)
+function trim_ecosystem(
+    ecosystem::Matrix{Float64},
+    depth_range::Int64 = 3)
+    # could throw DomainError here I guess?
+    if size(ecosystem, 2) < depth_range
+        @warn "Depth range exceeds max depth - fall back to max depth"
+        depth_range = size(ecosystem, 2)
     end
-    new_labels = ecosystem_cell_types(ecosystems,tissue.cell_labels)
-    tissue.ecosystems = ecosystems
-    tissue.cell_labels = new_labels
+    if depth_range < 1
+        @warn "Depth range cannot be 0 - fall back to direct neighborhood"
+    end
+    return ecosystem[:,1:depth_range]
+
+end
+
+function add_ecotypes(
+    tissue::Tissue;
+    collapse_to::Int64 = 0,
+    depth_range::Int64 = 3)::Tissue
+    ecosystems = tissue.ecosystems  # Vector{Tuple{Matrix, Vector}}
+    cell_labels = tissue.cell_labels
+    n = length(ecosystems)
+
+    resize!(cell_labels, n)
+    fill!(cell_labels, 0)
+
+    # Storage for unique representatives and their hashes
+    unique_hashes = UInt64[]
+    unique_matrices = AbstractMatrix[]
+    matrix_cell_groups = Vector{Vector{Int}}()
+
+    for i in 1:n
+        mat, _ = ecosystems[i]
+        mat = collapse_ecosystem(mat, collapse_to)
+        mat = trim_ecosystem(mat, depth_range)
+        h = hash(mat)
+
+        matched = false
+        for (j, existing_h) in enumerate(unique_hashes)
+            if h == existing_h && mat == unique_matrices[j]
+                push!(matrix_cell_groups[j], i)
+                matched = true
+                break
+            end
+        end
+
+        if !matched
+            push!(unique_hashes, h)
+            push!(unique_matrices, mat)
+            push!(matrix_cell_groups, [i])
+        end
+    end
+
+    for (label, cell_indices) in enumerate(matrix_cell_groups)
+        for idx in cell_indices
+            cell_labels[idx] = label
+        end
+    end
+
+    tissue.cell_labels = cell_labels
     return tissue
 end

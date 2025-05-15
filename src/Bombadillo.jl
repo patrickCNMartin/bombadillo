@@ -10,6 +10,8 @@ include("utils.jl")
 include("generate_cells.jl")
 include("generate_tissue.jl")
 include("generate_ecosystems.jl")
+include("generate_genes.jl")
+include("generate_samples.jl")
 include("visualization.jl")
 
 export Tissue,
@@ -21,5 +23,8 @@ export Tissue,
     plot_tissue_2d,
     get_neighborhood_graph,
     compute_shifts,
-    ecosystem_cell_types
+    add_ecotypes,
+    add_genes,
+    export_tissue,
+    generate_sample
 end
