@@ -73,7 +73,12 @@ function ecosystem_shifts(
             local_noise = getindex(local_type[cell],1).noise
             local_set = getindex(local_type[cell],2)
             local_shift = getindex(local_type[cell],3)
-            local_cell = ecosystem[cell,:]
+            # if type == "chain_shifts"
+                
+            # else
+                local_cell = ecosystem[cell,:]
+            #end
+           
             
             for (gene, shift) in zip(local_set, local_shift)
                 local_shift = aggregate_shift(shift, local_cell, type, density_damp, wave_damp)

@@ -1,6 +1,6 @@
 
 function add_shift_set(
-    types::AbstractVector,
+    types::Vector{Int64},
     base_cell::BaseCells,
     shift_type::Symbol)::Dict
     shift_set = Dict{eltype(types), Tuple{NamedTuple, Vector{Int64}, Vector{Int64}}}()
@@ -13,6 +13,19 @@ function add_shift_set(
     end
     return shift_set
 end
+
+# function add_chain_set(
+#     types::Vector{Int64},
+#     base_cell::BaseCells,
+#     shift_type::Symbol)::Dict
+#     shift_set = Dict{eltype(types), Dict{Int64,Tuple{NamedTuple, Vector, Vector}}}()
+#     params = getfield(base_cell, shift_type)
+#     n_genes = base_cell.n_genes
+#     chain = 
+#     for t in type
+
+#     end
+# end
 
 function add_shift(
     gene_set::Vector{Int64},

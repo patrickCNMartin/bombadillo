@@ -15,7 +15,8 @@ include("generate_samples.jl")
 include("visualization.jl")
 
 export Tissue,
-    BaseCellType,
+    BaseTissue,
+    BaseCells,
     create_cell_mesh,
     add_circles,
     add_cells,
@@ -26,5 +27,9 @@ export Tissue,
     add_ecotypes,
     add_genes,
     export_tissue,
-    generate_sample
+    generate_sample,
+    generate_coordinates,
+    add_domains,
+    add_cells,
+    add_ecotypes
 end

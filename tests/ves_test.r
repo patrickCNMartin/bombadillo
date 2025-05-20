@@ -1,10 +1,12 @@
 library(vesalius)
+library(ggpubr)
+library(ggplot2)
 
-coord <- read.csv("data/spatial_data_test_coordinates.csv")
+coord <- read.csv("data/spatial_data_all_coordinates.csv")
 coord$x <- coord$x * 1000
 coord$y <- coord$y * 1000
 
-counts <- read.csv("data/spatial_data_test_counts.csv", row.names = 1)
+counts <- read.csv("data/spatial_data_all_counts.csv", row.names = 1)
 
 cells <- coord$cell_labels
 names(cells) <- coord$barcodes
@@ -22,6 +24,9 @@ for (i in seq_along(pcs)){
 }
 
 p3 <- ggarrange(plotlist = pcs, ncol = 5, nrow = 5)
+
+
+
 
 library(Seurat)
 
@@ -43,11 +48,11 @@ seu <- seu %>%
     RunPCA() %>% 
     FindNeighbors() %>% 
     FindClusters(resolution = 0.1) %>% 
-    RunUMAP(dims = 1:10)
+    RunUMAP(dims = 1:30)
 
 g <- DimPlot(seu)
 g1 <- territory_plot(ves)
 new_coord <- coord
 new_coord$seurat_clusters <- seu@meta.data$seurat_clusters
 g2 <- ggplot(new_coord,aes(x,y,col = as.factor(seurat_clusters))) + geom_point()
-g + g2 +g1
+g + g2 #+g1

@@ -14,6 +14,7 @@ Base.@kwdef mutable struct BaseCells
     type_shifts::Union{Dict, NamedTuple} = (set_size = 10, max_shift = 500, noise = 10.0)
     contact_shifts::Union{Dict, NamedTuple} = (set_size = 10, max_shift = 500, noise = 10.0)
     wave_shifts::Union{Dict, NamedTuple} = (set_size = 10, max_shift = 500, noise = 10.0)
+    chain_shifts::Union{Dict, NamedTuple} = (set_size = 10, max_shift = 500, noise = 10.0, chain=[1,2,3,4,5])
     shift_type::Vector{String} = ["type_shifts","contact_shifts","wave_shifts"]
     wave_diffusion::Int64 = 3
     wave_damp::Float64 = 0.1
