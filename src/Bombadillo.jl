@@ -35,5 +35,6 @@ export Tissue,
     add_cells,
     add_ecotypes,
     cyclic_permuations,
-    compute_grn_overlaps
+    compute_grn_overlaps,
+    repressilator
 end

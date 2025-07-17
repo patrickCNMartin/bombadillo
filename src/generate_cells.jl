@@ -63,3 +63,26 @@ function add_cells(
     return cell_params
 end
 
+#-----------------------------------------------------------------------------#
+# New cells struct usage 
+# Each cell is an individual agent
+#-----------------------------------------------------------------------------#
+
+function initialize_cell(
+    cell_type::Union{Int32, String},
+    domain::Union{Int32, String},
+    grn_set::Vector{GRN},
+    gene_state::GeneState,
+    coordinate_range::Vector{Float64} = [0.0,1.0])::CellState
+    #-------------------------------------------------------------------------#
+    # First we generate coordinates
+    #-------------------------------------------------------------------------#
+    x = generate_coordinates(coordinate_range)
+    y = generate_coordinates(coordinate_range)
+    z = generate_coordinates(coordinate_range)
+end
+
+
+function generate_coordinates(coordinate_range::Vector{Float64} = [0.0,1.0])
+    return rand(Uniform(coordinate_range[1],coordinate_range[2]))
+end

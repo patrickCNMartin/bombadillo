@@ -16,6 +16,9 @@
         buildInputs = [
           pkgs.julia-bin
         ];
+        shellHook = ''
+            echo "Julia Dev environment loaded"
+        '';
       };
     });
   };

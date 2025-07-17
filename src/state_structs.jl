@@ -2,15 +2,13 @@ using SparseArrays
 #-----------------------------------------------------------------------------#
 # Gene struct - no need for mutability once set. 
 #-----------------------------------------------------------------------------#
-Base.@kwdef mutable struct GeneState
+Base.@kwdef struct GeneState
     n_genes::Int64 = 2000
-    genes::Union{Vector{int64}, Vector{Str}}
+    genes::Union{Vector{Int64}, Vector{String}}
     saturation_rank::Vector{Int64}
-    leaky_rank::Vector{Int64}
-    leak_rate::Vector{Int64} # if 0 then no change in baseline rank if more then it will go up till saturation of not repressed
+    leak_rate::Vector{Float64} # if 0 then no change in baseline rank if more then it will go up till saturation of not repressed
     decay_rate::Vector{Float64}
     translation_efficiency::Vector{Float64}
-    grn_state::Matrix{Int64}
 end
 function Base.show(io::IO, ::MIME"text/plain",x::GeneState)
     println(io,"GeneState Struct")
@@ -40,7 +38,7 @@ end
 #-----------------------------------------------------------------------------#
 Base.@kwdef mutable struct CellState
     temporal_state::Int64
-    ecosystem::Matrix{Foat64}
+    ecosystem::Matrix{Float64}
     coordinates::Tuple{Float64,Float64,Float64}
     chromatin_state::Vector{Float64}
     binding_state::Vector{Float64}
@@ -48,10 +46,10 @@ Base.@kwdef mutable struct CellState
     protein_state::Vector{Int64}
     meta_state::Dict
     wrap_state::Dict
-    trajectory::Vector{Str}
+    trajectory::Vector{String}
     grn_state::Dict
-    cell_type::Union{Int32, Str}
-    domain::Union{Int32, Str}
+    cell_type::Union{Int32, String}
+    domain::Union{Int32, String}
 end
 
 function Base.show(io::IO, ::MIME"text/plain",x::CellState)
@@ -103,7 +101,7 @@ Base.@kwdef struct SampleState
     cells::Vector{CellState}
     temporal_state::TemporalState
     spatial_linkage::Float64 = 0.3
-    biological_out::Vector{Str} = Vector("rna",1)
+    biological_out::Vector{String} = Vector("rna",1)
     out::SparseMatrixCSC{Float64}
 end
 function Base.show(io::IO, ::MIME"text/plain",x::SampleState)
@@ -120,8 +118,8 @@ Base.@kwdef mutable struct AtlasState
     n_batches::Int64 = 1
     domain_types::Union{Tuple{String, Int64, Int64},Vector{Tuple{String, Int64, Int64}}} = ("circle", 5,0)
     intial_cell_type::Int64 = 10
-    grn_type::Union{Vector{str},Vector{Matrix}} = ["reprisilator","template_randomized"]
-    biological_out::Vector{Str} = Vector("rna",1)
+    grn_type::Union{Vector{String},Vector{Matrix}} = ["reprisilator","template_randomized"]
+    biological_out::Vector{String} = Vector("rna",1)
     mosaic::Bool = false
     biological_noise::Int64 = 10
     batch_noise::Int64 = 10
@@ -140,7 +138,7 @@ end
 #-----------------------------------------------------------------------------#
 Base.@kwdef struct BioRef
     coordinates::Tuple{Float64,Float64,Float64}
-    type::Str = "rna"
+    type::String = "rna"
     biological_measurement::Union{Matrix{Float64},SparseMatrixCSC{Float64}}
 end
 

@@ -60,3 +60,25 @@ function add_genes(
     
 end
 
+#-----------------------------------------------------------------------------#
+# New gene state - Pute simulated for now.
+# we will change it later to create "synthetic data"
+#-----------------------------------------------------------------------------#
+function initialize_genes(n_genes::Int64 = 2000,
+    max_leak::Int64 = 10,
+    max_decay::Int64 = 100,
+    translational_efficiency::Vector{Float64})::GeneState 
+    genes = 1:n_genes 
+    saturation_rank = rand([n_genes / 2, n_genes])
+    leak_rate = rand([0,max_leak],n_genes)
+    decay_rate = rand([max_leak, max_decay],n_genes)
+    translational_efficiency = rand(
+        Uniform(translational_efficiency[1],translational_efficiency[2]), n_genes)
+    gene_state = GeneState(n_genes = n_genes,
+        genes = genes,
+        staturation_rank = saturation_rank,
+        leak_rate = leak_rate,
+        decay_rate = decay_rate,
+        translational_efficiency = translational_efficiency)
+    return gene_state
+end

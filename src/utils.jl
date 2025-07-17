@@ -43,8 +43,8 @@ function wave_decay(
 end
 
 
-function cyclic_permuations(n_regulators::Int64, sign::Bool = true)::Matrix{Int64}
-    reg_seq = collect(1:n_regulators)
+function cyclic_permuations(regulators::Vector{Int64}; sign::Bool = true)::Matrix{Int64}
+    reg_seq = collect(regulators)
     if sign
         reg_seq .= reg_seq * (-1)
     end
