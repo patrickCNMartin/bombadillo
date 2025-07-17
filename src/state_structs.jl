@@ -6,8 +6,8 @@ Base.@kwdef struct GeneState
     n_genes::Int64 = 2000
     genes::Union{Vector{Int64}, Vector{String}}
     saturation_rank::Vector{Int64}
-    leak_rate::Vector{Float64} # if 0 then no change in baseline rank if more then it will go up till saturation of not repressed
-    decay_rate::Vector{Float64}
+    leak_rate::Vector{Int64} # if 0 then no change in baseline rank if more then it will go up till saturation of not repressed
+    decay_rate::Vector{Int64}
     translation_efficiency::Vector{Float64}
 end
 function Base.show(io::IO, ::MIME"text/plain",x::GeneState)
