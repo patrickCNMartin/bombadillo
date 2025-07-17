@@ -2,14 +2,15 @@ using SparseArrays
 #-----------------------------------------------------------------------------#
 # Gene struct - no need for mutability once set. 
 #-----------------------------------------------------------------------------#
-Base.@kwdef struct GeneState
+Base.@kwdef mutable struct GeneState
     n_genes::Int64 = 2000
     genes::Union{Vector{int64}, Vector{Str}}
     saturation_rank::Vector{Int64}
     leaky_rank::Vector{Int64}
+    leak_rate::Vector{Int64} # if 0 then no change in baseline rank if more then it will go up till saturation of not repressed
     decay_rate::Vector{Float64}
     translation_efficiency::Vector{Float64}
-    grn_state::SparseMatrixCSC{Int32}
+    grn_state::Matrix{Int64}
 end
 function Base.show(io::IO, ::MIME"text/plain",x::GeneState)
     println(io,"GeneState Struct")
@@ -21,10 +22,13 @@ end
 # No need for mutability once set.
 #-----------------------------------------------------------------------------#
 Base.@kwdef struct GRN
-    master_regulator::Vector{Int64}
-    regulation::Matrix{Int32} # columns as GRN "steps"
-    chromatin_remodelling::Vector{Int64}
-    tf_binding::Vector{Int64}
+    regulatory_rel::Matrix{Int64}# columns as GRN "steps"
+    regulators::Vector{Int64} # What genes are involved?
+    regulator_strength::Vector{Float64} # How strongly are they "on" - master regulator always 1
+    cellular_output::Vector{Int64}# Messages that will be diffused out
+    metabolic_output::Vector{Int64}# Catch all for everything else
+    chromatin_remodelling::Vector{Int64} # If they remodel chromatin - where do they do that?
+    tf_binding::Vector{Int64}# If they bind somewhere where do they do that?
 end
 
 function Base.show(io::IO, ::MIME"text/plain",x::GRN)
@@ -45,7 +49,7 @@ Base.@kwdef mutable struct CellState
     meta_state::Dict
     wrap_state::Dict
     trajectory::Vector{Str}
-    GRN_collection::Dict
+    grn_state::Dict
     cell_type::Union{Int32, Str}
     domain::Union{Int32, Str}
 end

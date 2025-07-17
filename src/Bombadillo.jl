@@ -5,12 +5,14 @@ module Bombadillo
 # abstract type BaseCellType end
 
 include("tissue_structs.jl")
+include("state_structs.jl")
 include("graphs.jl")
 include("utils.jl")
 include("generate_cells.jl")
 include("generate_tissue.jl")
 include("generate_ecosystems.jl")
 include("generate_genes.jl")
+include("generate_grn.jl")
 include("generate_samples.jl")
 include("visualization.jl")
 
@@ -31,5 +33,7 @@ export Tissue,
     generate_coordinates,
     add_domains,
     add_cells,
-    add_ecotypes
+    add_ecotypes,
+    cyclic_permuations,
+    compute_grn_overlaps
 end
