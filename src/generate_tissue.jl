@@ -22,7 +22,7 @@ function create_cell_mesh(
     # Generate coordinates using specified ranges
     # Create coordinates from intial random points 
     #-------------------------------------------------------------------------#
-    coordinates = generate_coordinates(
+    coordinates = generate_coordinates_old(
         coordinate_range,
         max_cells,
         init_factor)
@@ -57,7 +57,7 @@ function create_cell_mesh(
     return tissue
 end
 
-function generate_coordinates(
+function generate_coordinates_old(
     coordinate_range::Tuple{Float64,Float64} = (0,1),
     max_cells::Int = 5000,
     init_factor::Float64 = 0.1)::AbstractVector

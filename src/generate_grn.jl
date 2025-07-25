@@ -77,3 +77,13 @@ function compute_grn_overlaps(
     end
     return regulators, strenghts
 end
+
+
+function grn_search(grn::GRN,
+    field_name::Symbol,
+    condition::Function)::Tuple
+    field = getproperty(grn, field_name)
+    locs = findall(condition, field)
+    values = field[locs]
+    return (locs, values)
+end

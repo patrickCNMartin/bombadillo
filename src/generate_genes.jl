@@ -71,7 +71,7 @@ function initialize_genes(n_genes::Int64 = 2000,
     genes = 1:n_genes 
     saturation_rank = rand([n_genes / 2, n_genes])
     leak_rate = rand([0,max_leak],n_genes)
-    decay_rate = rand([max_leak, max_decay],n_genes)
+    decay_rate = rand([max_leak, max_decay],n_genes) .* (-1)
     translational_efficiency = rand(
         Uniform(translational_efficiency[1],translational_efficiency[2]), n_genes)
     gene_state = GeneState(n_genes = n_genes,
