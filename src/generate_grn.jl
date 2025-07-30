@@ -29,9 +29,9 @@ function repressilator(
     grn = GRN(regulatory_rel = reg_rel,
         regulators = regulators,
         regulator_strength = strengths,
-        cellular_output = zeros(n_regulators),
+        messaging_output = zeros(n_regulators),
         metabolic_output = zeros(n_regulators),
-        chromatin_remodelling = chromatin_rezeros(n_regulators)modelling,
+        chromatin_remodelling = ones(n_regulators),
         tf_binding = regulators)
     return grn
 end
@@ -59,8 +59,9 @@ function compute_grn_overlaps(
     #-------------------------------------------------------------------------#
     if overlap_range[1] == 0.0 && overlap_range[2] == 0.0
         locs = findall(regulator_strength .== 0.0)
-        regulators = sample(locs, g)
+        regulators = sample(locs, g, replace = false)
         strenghts = rand(Uniform(strength_range[1],strength_range[2]),g)
+        regulator_strength[regulators] .= strenghts
     #-------------------------------------------------------------------------#
     # If we want overlaps we can define a overlap range 
     # From maybe you have an overlap to yes you definitely do have one 
@@ -68,12 +69,13 @@ function compute_grn_overlaps(
     # GRN are small entities that can have run-away and emmergent properties
     #-------------------------------------------------------------------------#
     else
-        over_g = ransampled(Int(g * overlap_range[1]):Int(g * overlap_range[2]))
+        over_g = rand(Int(g * overlap_range[1]):Int(g * overlap_range[2]))
         new_g = g - over_g
         over_locs = findall(regulator_strength .> 0)
         new_locs = findall(regulator_strength .== 0)
         regulators = [sample(over_locs,over_g);sample(new_locs,new_g)]
         strenghts = rand(Uniform(strength_range[1],strength_range[2]), over_g + new_g)
+        regulator_strength[regulators] .= strenghts
     end
     return regulators, strenghts
 end
@@ -82,7 +84,7 @@ end
 function grn_search(grn::GRN,
     field_name::Symbol,
     condition::Function)::Tuple
-    field = getproperty(grn, field_name)
+    field = getfield(grn, field_name)
     locs = findall(condition, field)
     values = field[locs]
     return (locs, values)

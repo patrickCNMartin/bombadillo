@@ -36,5 +36,7 @@ export Tissue,
     add_ecotypes,
     cyclic_permuations,
     compute_grn_overlaps,
-    repressilator
+    repressilator,
+    generate_tissue,
+    plot_tissue
 end

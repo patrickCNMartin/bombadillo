@@ -149,3 +149,121 @@ function add_circles(
 end
 
 
+#-----------------------------------------------------------------------------#
+# New tissue generation
+# Note: julia can handle fractions - could be nice to use them here
+# simple tissue generator for now - we can add complexity to it later
+#-----------------------------------------------------------------------------#
+function generate_tissue(
+    n_cells::Int64 = 5000,
+    n_domains::Int64 = 5,
+    n_types::Int64 = 10,
+    n_genes::Int64 = 2000,
+    coordinate_range::Tuple{Float64,Float64} = (0.0,1.0),
+    max_diffusion::Float64 = 0.5,
+    density_damp::Float64 = 0.1,
+    diffusion_damp::Float64 = 0.3,
+    static::Bool = true;
+    bio_ref::Union{Nothing, BioRef} = nothing)
+    #-------------------------------------------------------------------------#
+    # For I will try a fully random just to make sure the code works
+    #-------------------------------------------------------------------------#
+    domain_vec = sample(1:n_domains, n_cells, replace = true)
+    domain_vec = string.("domain_",string.(domain_vec))
+    domain_labels = string.("domain_",string.(1:n_domains))
+    type_vec = sample(1:n_types, n_cells, replace = true)
+    type_vec = string.("celltype_",string.(type_vec))
+    type_labels = string.("celltype_",string.(1:n_types))
+    cell_vec = Vector{CellState}(undef,n_cells)
+    #-------------------------------------------------------------------------#
+    # Initialize Gene set - since there are a lot of other params
+    # it might be useful to have the user set everything before hand
+    #-------------------------------------------------------------------------#
+    gene_set = initialize_genes(n_genes)
+    #-------------------------------------------------------------------------#
+    # Generate GRN sets for each cell type and domains
+    #-------------------------------------------------------------------------#
+    grn_set = Dict{String,GRN}()
+    grns = vcat(domain_labels,type_labels)
+    regulator_strength = gene_set.regulator_strength
+    for g in eachindex(grns)
+        grn = repressilator(regulator_strength)
+        grn_set[grns[g]] = grn
+    end
+    #-------------------------------------------------------------------------#
+    # Now we can generate a set of cells to populate the tissue
+    # Note that we will collect the info to put into the TissueState struct
+    # Just easier to store commonly used information rather than pulling 
+    # it our each cell every time we might need it 
+    #-------------------------------------------------------------------------#
+    for c in 1:n_cells
+        cell = initialize_cell(
+            type_vec[c],
+            domain_vec[c],
+            grn_set,
+            n_genes,
+            coordinate_range)
+        cell_vec[c] = cell
+    end
+    #-------------------------------------------------------------------------#
+    # Pull and concat
+    #-------------------------------------------------------------------------#
+    coordinates = pull_coordinates(cell_vec)
+    distances = cell_distances(coordinates, max_diffusion)
+    #-------------------------------------------------------------------------#
+    # build tissue
+    #-------------------------------------------------------------------------#
+    tissue = TissueState(
+        cells = cell_vec,
+        cell_types = type_vec,
+        domains = domain_vec,
+        coordinates = coordinates,
+        cell_distances = distances,
+        max_diffusion = max_diffusion,
+        density_damp = density_damp,
+        diffusion_damp = diffusion_damp,
+        static = static)
+    return tissue
+end
+
+
+function pull_coordinates(cell_vec::Vector{CellState})::Vector{Tuple{Float64,Float64,Float64}}
+    coord = [c.coordinates for c in cell_vec]
+    return coord
+end
+
+
+
+using SparseArrays
+function cell_distances(coodinates::Vector{Tuple{Float64,Float64,Float64}},
+    max_diffusion::Float64)::SparseMatrixCSC{Float64,Int64}
+    #-------------------------------------------------------------------------#
+    # Init and allocated
+    #-------------------------------------------------------------------------#
+    n = length(coodinates)
+    I = Int[]
+    J = Int[]
+    V = Float64[]
+    max_diffusion_sq = max_diffusion^2
+    #-------------------------------------------------------------------------#
+    # Loop over points - using this approach to avoid allocating 
+    # unnessary points - don't care about cells that are too far away
+    #-------------------------------------------------------------------------#
+    @inbounds for i in 1:n
+        xi, yi, zi = coodinates[i]
+        for j in i+1:n
+            xj, yj, zj = coodinates[j]
+            dist_sq = (xi - xj)^2 + (yi - yj)^2 + (zi - zj)^2
+            if dist_sq <= max_diffusion_sq
+                push!(I, i)
+                push!(J, j)
+                push!(V, sqrt(dist_sq))
+                # Symmetric entry - could get rid of this maybe?
+                push!(I, j)
+                push!(J, i)
+                push!(V, sqrt(dist_sq))
+            end
+        end
+    end
+    return sparse(I, J, V, n, n)
+end

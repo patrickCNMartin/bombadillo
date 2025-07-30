@@ -1,3 +1,10 @@
+#-----------------------------------------------------------------------------#
+# Setting a constant for temporal state 
+# we might reuse this at different places and it would be cleaner to change
+# it here only.
+#-----------------------------------------------------------------------------#
+const temporal_state = [1,2,3,4,5,6]
+
 
 function add_shift_set(
     types::Vector{Int64},
@@ -69,11 +76,11 @@ end
 #-----------------------------------------------------------------------------#
 
 function initialize_cell(
-    cell_type::Union{Int32, String},
-    domain::Union{Int32, String},
-    grn_set::Vector{GRN},
-    gene_state::GeneState,
-    coordinate_range::Tuple{Float64} = (0.0,1.0))::CellState
+    cell_type::Union{Int64, String},
+    domain::Union{Int64, String},
+    grn_set::Dict,
+    n_genes::Int64 = 2000,
+    coordinate_range::Tuple{Float64,Float64} = (0.0,1.0))::CellState
     #-------------------------------------------------------------------------#
     # Initialize coordinates
     #-------------------------------------------------------------------------#
@@ -83,52 +90,74 @@ function initialize_cell(
     coordinates = tuple.(x,y,z)
     #-------------------------------------------------------------------------#
     # Initialize state vectors
+    # Temporal state represent which biological level should we start the loop 
+    # i.e. chromatin, tf_binding, etc. 
+    # We will set a convention that state 1 is RNA
     #-------------------------------------------------------------------------#
-    
-    chromatin = initialize_state(grn_set,
-        gene_state.n_genes,
+    cell_info = [cell_type, domain]
+    grn_local = Dict(k=> grn_set[k] for k in cell_info if haskey(grn_set, k))
+    chromatin = initialize_state(grn_local,
+        n_genes,
         :chromatin_remodelling,
         x -> x != 0)
-    tf = initialize_state(grn_set,
-        gene_state.n_genes,
+    tf = initialize_state(grn_local,
+        n_genes,
         :tf_binding,
         x -> x > 0)
-    rna = initialize_rank(gene_state.n_genes)
-    protein = initialize_rank(gene_state.n_genes)
-    cellular = initialize_state(grn_set,
-        gene_state.n_genes,
-        :cellular_output,
+    rna = initialize_rank(n_genes)
+    protein = initialize_rank(n_genes)
+    messaging = initialize_state(grn_local,
+        n_genes,
+        :messaging_output,
         x -> x != 0)
-    metabolome = initialize_state(grn_set,
-        gene_state.n_genes,
+    metabolome = initialize_state(grn_local,
+        n_genes,
         :metabolic_output,
         x -> x != 0)
-    
-    
+    cycle_position = rand(temporal_state) # 6 layers at the moment 
+    #-------------------------------------------------------------------------#
+    # build cell state struct
+    #-------------------------------------------------------------------------#
+    cell = CellState(
+        cell_type = cell_type,
+        domain = domain,
+        cycle_position = cycle_position,
+        grn_set = grn_local,
+        ecosystem = nothing,
+        coordinates = coordinates,
+        chromatin_state = chromatin,
+        binding_state = tf,
+        rna_state = rna,
+        protein_state = protein,
+        metabolome_state = metabolome,
+        messaging_state = messaging)
+    return cell
 end
 
 
-function generate_coordinates(coordinate_range::Tuple{Float64} = (0.0,1.0))
+function generate_coordinates(coordinate_range::Tuple{Float64,Float64} = (0.0,1.0))
     return rand(Uniform(coordinate_range[1],coordinate_range[2]))
 end
 
 using SparseArrays
-function initialize_state(grn_set::Vector{GRN},
+function initialize_state(grn_set::Dict,
     n_genes::Int64,
     layer::Symbol,
     condition::Function)
     locs = Vector{Vector}(undef, length(grn_set))
     values = Vector{Vector}(undef, length(grn_set))
-    for g in eachindex(grn_set) 
-        l, v = grn_search(grn_set[g], layer, condition)
-        locs[g] = l
-        values[g] = v
+    count = 1
+    for (_,grn) in grn_set
+        l, v = grn_search(grn, layer, condition)
+        locs[count] = l
+        values[count] = v
+        count += 1
     end
     concat_locs = vcat(locs)
     sparse_locs = unique(i -> concat_locs[i], eachindex(concat_locs))
     sparse_values = vcat(values)[sparse_locs]
-    chromatin_state = sparsevec(sparse_locs,sparse_values,n_genes)
-    return chromatin_state
+    state = sparsevec(sparse_locs,sparse_values,n_genes)
+    return state
 end
 
 

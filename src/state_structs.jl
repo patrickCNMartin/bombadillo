@@ -9,6 +9,7 @@ Base.@kwdef struct GeneState
     leak_rate::Vector{Int64} # if 0 then no change in baseline rank if more then it will go up till saturation of not repressed
     decay_rate::Vector{Int64}
     translation_efficiency::Vector{Float64}
+    regulator_strength::Vector{Float64}
 end
 function Base.show(io::IO, ::MIME"text/plain",x::GeneState)
     println(io,"GeneState Struct")
@@ -23,7 +24,7 @@ Base.@kwdef struct GRN
     regulatory_rel::Matrix{Int64}# columns as GRN "steps"
     regulators::Vector{Int64} # What genes are involved?
     regulator_strength::Vector{Float64} # How strongly are they "on" - master regulator always 1
-    cellular_output::Vector{Int64}# Messages that will be diffused out
+    messaging_output::Vector{Int64}# Messages that will be diffused out
     metabolic_output::Vector{Int64}# Catch all for everything else
     chromatin_remodelling::Vector{Int64} # If they remodel chromatin - where do they do that?
     tf_binding::Vector{Int64}# If they bind somewhere where do they do that?
@@ -37,19 +38,18 @@ end
 # Cell States struct
 #-----------------------------------------------------------------------------#
 Base.@kwdef mutable struct CellState
-    temporal_state::Int64
-    ecosystem::Matrix{Float64}
+    cell_type::Union{Int64, String}
+    domain::Union{Int64, String}
+    cycle_position::Int64
+    grn_set::Dict
+    ecosystem::Union{Matrix{Float64},Nothing}
     coordinates::Tuple{Float64,Float64,Float64}
-    chromatin_state::Vector{Float64}
-    binding_state::Vector{Float64}
+    chromatin_state::SparseVector
+    binding_state::SparseVector
     rna_state::Vector{Int64}
     protein_state::Vector{Int64}
-    meta_state::Dict
-    wrap_state::Dict
-    trajectory::Vector{String}
-    grn_state::Dict
-    cell_type::Union{Int32, String}
-    domain::Union{Int32, String}
+    metabolome_state::SparseVector
+    messaging_state::SparseVector
 end
 
 function Base.show(io::IO, ::MIME"text/plain",x::CellState)
@@ -61,12 +61,12 @@ end
 # Starting state I guesss since we want to add dynamic cells and mvt
 #-----------------------------------------------------------------------------#
 Base.@kwdef mutable struct TissueState
-    n_cells::Int64 = 5000
+    cells::Vector{CellState}
+    cell_types::Union{Vector{Int64}, Vector{String}}
+    domains::Union{Vector{Int64}, Vector{String}}
     coordinates::Vector{Tuple{Float64,Float64,Float64}}
-    cell_types::Vector{Int32}
-    territories::Vector{Int32}
-    cell_distance::SparseMatrixCSC{Float64}
-    max_diffusion::Float64
+    cell_distances::SparseMatrixCSC{Float64,Int64}
+    max_diffusion::Float64 = 0.5
     density_damp::Float64 = 0.1
     diffusion_damp::Float64 = 0.3
     static::Bool = true
@@ -135,11 +135,17 @@ end
 
 #-----------------------------------------------------------------------------#
 # Biological reference
+# Will use this for now - not ideal 
+# Mainly the labels - there could be a more compact way of parsing more
+# labels and using them dynamically.
 #-----------------------------------------------------------------------------#
 Base.@kwdef struct BioRef
     coordinates::Tuple{Float64,Float64,Float64}
     type::String = "rna"
     biological_measurement::Union{Matrix{Float64},SparseMatrixCSC{Float64}}
+    cell_labels::Union{Union{Vector{Int64}, Vector{String}}, Nothing}
+    domain_labels::Union{Union{Vector{Int64}, Vector{String}}, Nothing}
+    condition_labels::Union{Union{Vector{Int64}, Vector{String}}, Nothing}
 end
 
 function Base.show(io::IO, ::MIME"text/plain",x::BioRef)
