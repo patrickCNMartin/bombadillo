@@ -235,35 +235,30 @@ end
 
 
 using SparseArrays
+using NearestNeighbors
 function cell_distances(coodinates::Vector{Tuple{Float64,Float64,Float64}},
     max_diffusion::Float64)::SparseMatrixCSC{Float64,Int64}
     #-------------------------------------------------------------------------#
     # Init and allocated
     #-------------------------------------------------------------------------#
     n = length(coodinates)
-    I = Int[]
-    J = Int[]
-    V = Float64[]
-    max_diffusion_sq = max_diffusion^2
+    tree = KDTree(hcat([[c[1], c[2], c[3]] for c in coodinates]...))
+    I, J, V = Int[], Int[], Float64[]
     #-------------------------------------------------------------------------#
     # Loop over points - using this approach to avoid allocating 
     # unnessary points - don't care about cells that are too far away
     #-------------------------------------------------------------------------#
-    @inbounds for i in 1:n
-        xi, yi, zi = coodinates[i]
-        for j in i+1:n
-            xj, yj, zj = coodinates[j]
-            dist_sq = (xi - xj)^2 + (yi - yj)^2 + (zi - zj)^2
-            if dist_sq <= max_diffusion_sq
-                push!(I, i)
-                push!(J, j)
-                push!(V, sqrt(dist_sq))
-                # Symmetric entry - could get rid of this maybe?
-                push!(I, j)
-                push!(J, i)
-                push!(V, sqrt(dist_sq))
+    for i in 1:n
+        idxs, dists = inrange(tree,
+            [coodinates[i][1], coodinates[i][2], coodinates[i][3]],
+            max_diffusion)
+        for (j, d) in zip(idxs, dists)
+            if i < j
+                push!(I, i, j)
+                push!(J, j, i)
+                push!(V, d, d)
             end
         end
     end
-    return sparse(I, J, V, n, n)
+    sparse(I, J, V, n, n)
 end
