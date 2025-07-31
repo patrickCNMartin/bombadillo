@@ -1,9 +1,3 @@
-#-----------------------------------------------------------------------------#
-# Setting a constant for temporal state 
-# we might reuse this at different places and it would be cleaner to change
-# it here only.
-#-----------------------------------------------------------------------------#
-const temporal_state = [1,2,3,4,5,6]
 
 
 function add_shift_set(
@@ -75,19 +69,70 @@ end
 # Each cell is an individual agent
 #-----------------------------------------------------------------------------#
 
-function initialize_cell(
-    cell_type::Union{Int64, String},
-    domain::Union{Int64, String},
-    grn_set::Dict,
+function initialize_cells(
+    tissue::TissueState,
     n_genes::Int64 = 2000,
-    coordinate_range::Tuple{Float64,Float64} = (0.0,1.0))::CellState
+    n_cells::Int64 = 5000)::Vector{CellState}
     #-------------------------------------------------------------------------#
-    # Initialize coordinates
+    # pull and check
     #-------------------------------------------------------------------------#
-    x = generate_coordinates(coordinate_range)
-    y = generate_coordinates(coordinate_range)
-    z = generate_coordinates(coordinate_range)
-    coordinates = tuple.(x,y,z)
+    coordinates = tissue.coordinates
+    if isnothing(tissue)
+        throw(ArgumentError("Sample does not contain any tissue \n 
+        Please run initialize_tissue first"))
+    end
+    cell_vec = Vector{CellState}(undef,n_cells)
+    for c in 1:n_cells
+        cell = initialize_cell(
+            nothing,
+            nothing,
+            coordinates[c],
+            n_genes)
+        cell_vec[c] = cell
+    end
+    return cell_vec
+end
+
+function initialize_cell(
+    cell_type::Union{Nothing, String},
+    domain::Union{Nothing, String},
+    coordinates::Tuple{Float64,Float64,Float64},
+    n_genes::Int64 = 2000)::CellState
+    rna = initialize_rank(n_genes)
+    protein = initialize_rank(n_genes)
+    cycle_position = rand(temporal_state) # 6 layers at the moment 
+    #-------------------------------------------------------------------------#
+    # build cell state struct
+    #-------------------------------------------------------------------------#
+    cell = CellState(
+        cell_type = cell_type,
+        domain = domain,
+        cycle_position = cycle_position,
+        grn_set = nothing,
+        ecosystem = nothing,
+        coordinates = coordinates,
+        chromatin_state = nothing,
+        binding_state = nothing,
+        rna_state = rna,
+        protein_state = protein,
+        metabolome_state = nothing,
+        messaging_state = nothing)
+    return cell
+end
+
+
+function update_cells(cells::Vector{CellState},
+    what::Vector,
+    field::Symbol)::Vector{CellState}
+    for c in eachindex(cells)
+        update = what[c]
+        setfield!(cells[c], field, update)
+    end
+    return cells
+end
+
+
+function add_cells(sample::SampleState)
     #-------------------------------------------------------------------------#
     # Initialize state vectors
     # Temporal state represent which biological level should we start the loop 
@@ -104,8 +149,7 @@ function initialize_cell(
         n_genes,
         :tf_binding,
         x -> x > 0)
-    rna = initialize_rank(n_genes)
-    protein = initialize_rank(n_genes)
+    
     messaging = initialize_state(grn_local,
         n_genes,
         :messaging_output,
@@ -114,30 +158,8 @@ function initialize_cell(
         n_genes,
         :metabolic_output,
         x -> x != 0)
-    cycle_position = rand(temporal_state) # 6 layers at the moment 
-    #-------------------------------------------------------------------------#
-    # build cell state struct
-    #-------------------------------------------------------------------------#
-    cell = CellState(
-        cell_type = cell_type,
-        domain = domain,
-        cycle_position = cycle_position,
-        grn_set = grn_local,
-        ecosystem = nothing,
-        coordinates = coordinates,
-        chromatin_state = chromatin,
-        binding_state = tf,
-        rna_state = rna,
-        protein_state = protein,
-        metabolome_state = metabolome,
-        messaging_state = messaging)
-    return cell
 end
 
-
-function generate_coordinates(coordinate_range::Tuple{Float64,Float64} = (0.0,1.0))
-    return rand(Uniform(coordinate_range[1],coordinate_range[2]))
-end
 
 using SparseArrays
 function initialize_state(grn_set::Dict,

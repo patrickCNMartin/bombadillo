@@ -24,11 +24,15 @@ end
 #-----------------------------------------------------------------------------#
 # New Viz function for cell states 
 #-----------------------------------------------------------------------------#
-function plot_tissue(tissue::TissueState,
+function plot_tissue(sample::SampleState,
     labels::Symbol = :cell_types;
     dim = 2)
+    tissue = sample.tissue
     coords = tissue.coordinates
     labs = getfield(tissue, labels)
+    if isnothing(labs)
+        throw(DomainError("Requested label is not present in sample"))
+    end
     x = getindex.(coords,1)
     y = getindex.(coords,2)
 

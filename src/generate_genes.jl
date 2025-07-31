@@ -65,10 +65,13 @@ end
 # we will change it later to create "synthetic data"
 #-----------------------------------------------------------------------------#
 function initialize_genes(
-    n_genes::Int64 = 2000,
+    n_genes::Int64 = 2000;
     max_leak::Int64 = 10,
     max_decay::Int64 = 100,
-    translation_efficiency::Vector{Float64} = [0.5, 1.0])::GeneState 
+    translation_efficiency::Vector{Float64} = [0.5, 1.0])::GeneState
+    #-------------------------------------------------------------------------#
+    # build initial gene set
+    #-------------------------------------------------------------------------#
     genes = string.("gene_",1:n_genes)
     regulator_strength = zeros(Float64, n_genes)
     saturation_rank = rand([n_genes / 2, n_genes],n_genes)
@@ -83,5 +86,6 @@ function initialize_genes(
         decay_rate = decay_rate,
         translation_efficiency = translation_efficiency,
         regulator_strength = regulator_strength)
+   
     return gene_state
 end

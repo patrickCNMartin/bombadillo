@@ -1,3 +1,10 @@
+#-----------------------------------------------------------------------------#
+# Define const
+#-----------------------------------------------------------------------------#
+const temporal_state = [1,2,3,4,5,6]
+#-----------------------------------------------------------------------------#
+# Structs
+#-----------------------------------------------------------------------------#
 using SparseArrays
 #-----------------------------------------------------------------------------#
 # Gene struct - no need for mutability once set. 
@@ -38,18 +45,18 @@ end
 # Cell States struct
 #-----------------------------------------------------------------------------#
 Base.@kwdef mutable struct CellState
-    cell_type::Union{Int64, String}
-    domain::Union{Int64, String}
+    cell_type:: Union{Nothing,String}
+    domain::Union{Nothing, String}
     cycle_position::Int64
-    grn_set::Dict
-    ecosystem::Union{Matrix{Float64},Nothing}
+    grn_set::Union{Dict, Nothing} = nothing
+    ecosystem::Union{Matrix{Float64},Nothing} = nothing
     coordinates::Tuple{Float64,Float64,Float64}
-    chromatin_state::SparseVector
-    binding_state::SparseVector
-    rna_state::Vector{Int64}
-    protein_state::Vector{Int64}
-    metabolome_state::SparseVector
-    messaging_state::SparseVector
+    chromatin_state::Union{SparseVector,Nothing} = nothing
+    binding_state::Union{SparseVector,Nothing} = nothing
+    rna_state::Union{Vector{Int64}, Nothing} = nothing
+    protein_state::Union{Vector{Int64}, Nothing} = nothing
+    metabolome_state::Union{SparseVector,Nothing} = nothing
+    messaging_state::Union{SparseVector,Nothing} = nothing
 end
 
 function Base.show(io::IO, ::MIME"text/plain",x::CellState)
@@ -60,10 +67,9 @@ end
 # Tissue struct - general tissue information 
 # Starting state I guesss since we want to add dynamic cells and mvt
 #-----------------------------------------------------------------------------#
-Base.@kwdef mutable struct TissueState
-    cells::Vector{CellState}
-    cell_types::Union{Vector{Int64}, Vector{String}}
-    domains::Union{Vector{Int64}, Vector{String}}
+Base.@kwdef mutable struct TissueState 
+    cell_types::Union{Nothing, Vector{String}}
+    domains::Union{Nothing, Vector{String}}
     coordinates::Vector{Tuple{Float64,Float64,Float64}}
     cell_distances::SparseMatrixCSC{Float64,Int64}
     max_diffusion::Float64 = 0.5
@@ -93,16 +99,17 @@ end
 # Sample state - essentially collect all info to return a usable Sample
 # also will contain initial condition information
 #-----------------------------------------------------------------------------#
-Base.@kwdef struct SampleState
+Base.@kwdef mutable struct SampleState
     n_cells::Int64 = 5000 
     n_genes::Int64 = 2000
-    batch::Int64
-    tissue::TissueState
-    cells::Vector{CellState}
-    temporal_state::TemporalState
-    spatial_linkage::Float64 = 0.3
-    biological_out::Vector{String} = Vector("rna",1)
-    out::SparseMatrixCSC{Float64}
+    batch::Int64 = 1
+    tissue::Union{TissueState, Nothing} = nothing
+    cells::Union{Vector{CellState},Nothing} = nothing
+    grn_set::Union{Dict, Nothing} = nothing
+    gene_set::Union{GeneState, Nothing} = nothing
+    temporal_state::Union{Nothing,TemporalState} = nothing
+    biological_out::Vector{String} = ["rna"]
+    out::Union{SparseMatrixCSC{Float64},Nothing} = nothing
 end
 function Base.show(io::IO, ::MIME"text/plain",x::SampleState)
     println(io,"SampleState Struct:")

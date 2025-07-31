@@ -34,9 +34,8 @@ export Tissue,
     add_domains,
     add_cells,
     add_ecotypes,
-    cyclic_permuations,
-    compute_grn_overlaps,
     repressilator,
-    generate_tissue,
-    plot_tissue
+    plot_tissue,
+    initialize_sample,
+    add_spheres
 end

@@ -78,7 +78,7 @@ function get_domains(base_tissue::BaseTissue)
 end
 
 
-function add_domains(
+function add_domains_old(
     tissue::Tissue)::Tissue
     domains = get_domains(tissue.base_tissue)
     depth_range = tissue.base_tissue.depth_range
@@ -154,77 +154,53 @@ end
 # Note: julia can handle fractions - could be nice to use them here
 # simple tissue generator for now - we can add complexity to it later
 #-----------------------------------------------------------------------------#
-function generate_tissue(
-    n_cells::Int64 = 5000,
-    n_domains::Int64 = 5,
-    n_types::Int64 = 10,
-    n_genes::Int64 = 2000,
+function initialize_tissue(
+    n_cells::Int64 = 5000;
+    tissue_dims::Int64 = 2,
     coordinate_range::Tuple{Float64,Float64} = (0.0,1.0),
     max_diffusion::Float64 = 0.5,
     density_damp::Float64 = 0.1,
     diffusion_damp::Float64 = 0.3,
-    static::Bool = true;
-    bio_ref::Union{Nothing, BioRef} = nothing)
+    static::Bool = true)::TissueState
     #-------------------------------------------------------------------------#
-    # For I will try a fully random just to make sure the code works
+    # Generate coordinates
     #-------------------------------------------------------------------------#
-    domain_vec = sample(1:n_domains, n_cells, replace = true)
-    domain_vec = string.("domain_",string.(domain_vec))
-    domain_labels = string.("domain_",string.(1:n_domains))
-    type_vec = sample(1:n_types, n_cells, replace = true)
-    type_vec = string.("celltype_",string.(type_vec))
-    type_labels = string.("celltype_",string.(1:n_types))
-    cell_vec = Vector{CellState}(undef,n_cells)
-    #-------------------------------------------------------------------------#
-    # Initialize Gene set - since there are a lot of other params
-    # it might be useful to have the user set everything before hand
-    #-------------------------------------------------------------------------#
-    gene_set = initialize_genes(n_genes)
-    #-------------------------------------------------------------------------#
-    # Generate GRN sets for each cell type and domains
-    #-------------------------------------------------------------------------#
-    grn_set = Dict{String,GRN}()
-    grns = vcat(domain_labels,type_labels)
-    regulator_strength = gene_set.regulator_strength
-    for g in eachindex(grns)
-        grn = repressilator(regulator_strength)
-        grn_set[grns[g]] = grn
+    x = generate_coordinates(coordinate_range, n_cells)
+    y = generate_coordinates(coordinate_range, n_cells)
+    if tissue_dims == 3
+        z = generate_coordinates(coordinate_range,n_cells) 
+    else
+        z = zeros(length(x))
     end
+    coordinates = tuple.(x,y,z)
     #-------------------------------------------------------------------------#
-    # Now we can generate a set of cells to populate the tissue
-    # Note that we will collect the info to put into the TissueState struct
-    # Just easier to store commonly used information rather than pulling 
-    # it our each cell every time we might need it 
+    # Cell distance matrix
     #-------------------------------------------------------------------------#
-    for c in 1:n_cells
-        cell = initialize_cell(
-            type_vec[c],
-            domain_vec[c],
-            grn_set,
-            n_genes,
-            coordinate_range)
-        cell_vec[c] = cell
-    end
-    #-------------------------------------------------------------------------#
-    # Pull and concat
-    #-------------------------------------------------------------------------#
-    coordinates = pull_coordinates(cell_vec)
     distances = cell_distances(coordinates, max_diffusion)
     #-------------------------------------------------------------------------#
     # build tissue
     #-------------------------------------------------------------------------#
     tissue = TissueState(
-        cells = cell_vec,
-        cell_types = type_vec,
-        domains = domain_vec,
+        cell_types = nothing,
+        domains = nothing,
         coordinates = coordinates,
         cell_distances = distances,
         max_diffusion = max_diffusion,
         density_damp = density_damp,
         diffusion_damp = diffusion_damp,
         static = static)
+    
     return tissue
 end
+
+
+
+function generate_coordinates(
+    coordinate_range::Tuple{Float64,Float64} = (0.0,1.0),
+    n_cells::Int64 = 5000)
+    return rand(Uniform(coordinate_range[1],coordinate_range[2]),n_cells)
+end
+
 
 
 function pull_coordinates(cell_vec::Vector{CellState})::Vector{Tuple{Float64,Float64,Float64}}
@@ -233,32 +209,126 @@ function pull_coordinates(cell_vec::Vector{CellState})::Vector{Tuple{Float64,Flo
 end
 
 
-
 using SparseArrays
 using NearestNeighbors
-function cell_distances(coodinates::Vector{Tuple{Float64,Float64,Float64}},
+function cell_distances(coordinates::Vector{Tuple{Float64,Float64,Float64}},
     max_diffusion::Float64)::SparseMatrixCSC{Float64,Int64}
     #-------------------------------------------------------------------------#
     # Init and allocated
     #-------------------------------------------------------------------------#
-    n = length(coodinates)
-    tree = KDTree(hcat([[c[1], c[2], c[3]] for c in coodinates]...))
+    n = length(coordinates)
+    mat = stack(coordinates)
+    tree = KDTree(mat)
     I, J, V = Int[], Int[], Float64[]
     #-------------------------------------------------------------------------#
     # Loop over points - using this approach to avoid allocating 
     # unnessary points - don't care about cells that are too far away
     #-------------------------------------------------------------------------#
-    for i in 1:n
-        idxs, dists = inrange(tree,
-            [coodinates[i][1], coodinates[i][2], coodinates[i][3]],
-            max_diffusion)
-        for (j, d) in zip(idxs, dists)
-            if i < j
-                push!(I, i, j)
-                push!(J, j, i)
-                push!(V, d, d)
+    @inbounds for i in 1:n
+        ref_point = [coordinates[i][1], coordinates[i][2], coordinates[i][3]]
+        idxs = inrange(tree, ref_point, max_diffusion, false)  # Indices only, unsorted
+        for j in idxs
+            if i < j  # Avoid duplicates and self-pairs
+                dist = sqrt(sum((coordinates[i][k] - coordinates[j][k])^2 for k in 1:3))
+                push!(I, i)
+                push!(J, j)
+                push!(V, dist)
+                # push!(I, j)
+                # push!(J, i)
+                # push!(V, dist)  # Symmetric entry
             end
         end
     end
     sparse(I, J, V, n, n)
+end
+using NearestNeighbors
+function reference_distances(coordinates::Vector{Tuple{Float64,Float64,Float64}},
+    radius::Float64,
+    reference_coordinates::Int64)
+    #-------------------------------------------------------------------------#
+    # Init and allocated
+    #-------------------------------------------------------------------------#
+    mat = stack(coordinates)
+    tree = KDTree(mat)
+    reference = stack(coordinates[reference_coordinates])
+    idxs = inrange(tree,reference,radius, false)
+    return idxs   
+end
+
+#-----------------------------------------------------------------------------#
+# adding domains
+# not sure where I want these to be called.
+# In the generate_tissue function or should it be a seperate exported function
+#-----------------------------------------------------------------------------#
+# function add_domains(sample::SampleState,
+#     n_domains::Vector{Int64} = [5],
+#     domain_type::Vector{String} = ["sphere"])::SampleState
+#     #-------------------------------------------------------------------------#
+#     # Loop over domain types 
+#     #-------------------------------------------------------------------------#
+#     for d in domain_type
+
+#     end
+# end
+
+
+
+function add_spheres(
+    sample::SampleState,
+    n_domains::Int64 = 5,
+    domain_range::Tuple{Float64,Float64} = (0.1,0.3),
+    allow_hollow = false)::SampleState
+    #-------------------------------------------------------------------------#
+    # Pull and check
+    #-------------------------------------------------------------------------#
+    min_range = domain_range[1]
+    max_range = domain_range[2]
+    if min_range <= 0.0
+        throw(DomainError("Min sphere range should be > 0.0"))
+    end
+    coordinates = sample.tissue.coordinates
+    domain_labels = sample.tissue.domains
+    n_cells = sample.n_cells
+    if isnothing(domain_labels)
+        domain_labels = fill("domain_0", n_cells)
+        low_bound = 1
+    else 
+        low_bound = [parse(Int, m.match) for m in match.(r"\d+$", domain_labels)]
+        low_bound = maximum(low_bound) + 1
+    end
+    #-------------------------------------------------------------------------#
+    # Loop - don't need to have a index here
+    #-------------------------------------------------------------------------#
+    for _ in 1:n_domains
+        if !allow_hollow
+            intial_coord = rand(1:length(coordinates))
+            radius = rand(Uniform(min_range,max_range))
+            sphere = reference_distances(coordinates,radius,intial_coord)
+            domain = string("domain_",low_bound)
+            domain_labels[sphere] .= domain
+        else
+            intial_coord = rand(1:length(coordinates))
+            radius_1 = rand(Uniform(min_range,max_range))
+            sphere_1 = reference_distances(coordinates,radius_1,intial_coord)
+            radius_2 = rand(Uniform(min_range,max_range))
+            sphere_2 = reference_distances(coordinates,radius_2,intial_coord)
+            if radius_1 > radius_2
+                sphere = setdiff(sphere_1,sphere_2)
+            else
+                sphere = setdiff(sphere_2,sphere_1)
+            end
+            domain = string("domain_",low_bound)
+            domain_labels[sphere] .= domain
+        end
+        low_bound += 1
+    end
+    #-------------------------------------------------------------------------#
+    # update sample, tissue, and cells 
+    #-------------------------------------------------------------------------#
+    sample.tissue.domains = domain_labels
+    sample.cells = update_cells(
+        sample.cells,
+        domain_labels,
+        :domain)
+    return sample
 end

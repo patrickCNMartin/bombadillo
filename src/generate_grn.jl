@@ -10,8 +10,8 @@ function repressilator(
     #-------------------------------------------------------------------------#
     regulators, strengths = compute_grn_overlaps(
         regulator_strength,
-        overlap_range = [0.0,0.0],
-        strength_range = [0.99,1],
+        overlap_range = (0.0,0.0),
+        strength_range = (0.99,1.0),
         g = n_regulators)
     #-------------------------------------------------------------------------#
     # Function tp shift indices to make a circular repressilator of 
@@ -50,8 +50,8 @@ end
 
 function compute_grn_overlaps(
     regulator_strength::Vector{Float64};
-    overlap_range::Vector{Float64} = [0.0,0.0],
-    strength_range::Vector{Float64} = [0.5,1.0],
+    overlap_range::Tuple{Float64,Float64} = (0.0,0.0),
+    strength_range::Tuple{Float64,Float64} = (0.5,1.0),
     g::Int64 = 3)::Tuple{Vector{Int64},Vector{Float64}}
     #-------------------------------------------------------------------------#
     # If we don't want overlaps we find that have strength of 0 
@@ -88,4 +88,18 @@ function grn_search(grn::GRN,
     locs = findall(condition, field)
     values = field[locs]
     return (locs, values)
+end
+
+
+function add_grns(sample::SampleState)
+    #-------------------------------------------------------------------------#
+    # Generate GRN sets for each cell type and domains
+    #-------------------------------------------------------------------------#
+    grn_set = Dict{String,GRN}()
+    grns = vcat(domain_labels,type_labels)
+    regulator_strength = gene_set.regulator_strength
+    for g in eachindex(grns)
+        grn = repressilator(regulator_strength)
+        grn_set[grns[g]] = grn
+    end
 end
