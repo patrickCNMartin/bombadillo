@@ -326,7 +326,68 @@ function add_spheres(
     # update sample, tissue, and cells 
     #-------------------------------------------------------------------------#
     sample.tissue.domains = domain_labels
-    sample.cells = update_cells(
+    update_cell_info!(
+        sample.cells,
+        domain_labels,
+        :domain)
+    return sample
+end
+
+
+function add_spheres!(
+    sample::SampleState,
+    n_domains::Int64 = 5,
+    domain_range::Tuple{Float64,Float64} = (0.1,0.3),
+    allow_hollow = false)::SampleState
+    #-------------------------------------------------------------------------#
+    # Pull and check
+    #-------------------------------------------------------------------------#
+    min_range = domain_range[1]
+    max_range = domain_range[2]
+    if min_range <= 0.0
+        throw(DomainError("Min sphere range should be > 0.0"))
+    end
+    coordinates = sample.tissue.coordinates
+    domain_labels = sample.tissue.domains
+    n_cells = sample.n_cells
+    if isnothing(domain_labels)
+        domain_labels = fill("domain_0", n_cells)
+        low_bound = 1
+    else 
+        low_bound = [parse(Int, m.match) for m in match.(r"\d+$", domain_labels)]
+        low_bound = maximum(low_bound) + 1
+    end
+    #-------------------------------------------------------------------------#
+    # Loop - don't need to have a index here
+    #-------------------------------------------------------------------------#
+    for _ in 1:n_domains
+        if !allow_hollow
+            intial_coord = rand(1:length(coordinates))
+            radius = rand(Uniform(min_range,max_range))
+            sphere = reference_distances(coordinates,radius,intial_coord)
+            domain = string("domain_",low_bound)
+            domain_labels[sphere] .= domain
+        else
+            intial_coord = rand(1:length(coordinates))
+            radius_1 = rand(Uniform(min_range,max_range))
+            sphere_1 = reference_distances(coordinates,radius_1,intial_coord)
+            radius_2 = rand(Uniform(min_range,max_range))
+            sphere_2 = reference_distances(coordinates,radius_2,intial_coord)
+            if radius_1 > radius_2
+                sphere = setdiff(sphere_1,sphere_2)
+            else
+                sphere = setdiff(sphere_2,sphere_1)
+            end
+            domain = string("domain_",low_bound)
+            domain_labels[sphere] .= domain
+        end
+        low_bound += 1
+    end
+    #-------------------------------------------------------------------------#
+    # update sample, tissue, and cells 
+    #-------------------------------------------------------------------------#
+    sample.tissue.domains = domain_labels
+    update_cell_info!(
         sample.cells,
         domain_labels,
         :domain)

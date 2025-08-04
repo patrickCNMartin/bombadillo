@@ -90,16 +90,96 @@ function grn_search(grn::GRN,
     return (locs, values)
 end
 
+#-----------------------------------------------------------------------------#
+# add grns for simple type such as cells or domain 
+# we will add messaging_output seperately i guess
+#-----------------------------------------------------------------------------#
+function add_grns(sample::SampleState,
+    use::Union{Symbol, Vector{Symbol}}= :cell_types,
+    overwrite::Bool = false)::SampleState
+    #-------------------------------------------------------------------------#
+    # This will need to be refactored
+    # It's not very elegant
+    #-------------------------------------------------------------------------#
+    if isa(use, Symbol)
+        grns = unique(check_field_value(sample.tissue, use))
+    else
+        grns = unique([check_field_value(sample.tissue,i) for i in use])
+    end
+    #-------------------------------------------------------------------------#
+    # Check if GRns are already present otherwise add to existing 
+    #-------------------------------------------------------------------------#
+    if isnothing(sample.grn_set)
+        grn_set = Dict{String,GRN}()
+    else
+        grn_set = sample.grn_set
+    end
 
-function add_grns(sample::SampleState)
     #-------------------------------------------------------------------------#
-    # Generate GRN sets for each cell type and domains
+    # check if we overwrite or not - this is useful if we want to add
+    # more than one grn per category
     #-------------------------------------------------------------------------#
-    grn_set = Dict{String,GRN}()
-    grns = vcat(domain_labels,type_labels)
-    regulator_strength = gene_set.regulator_strength
+    if !overwrite
+        grns = make_unique_keys(grn_set, grns)
+    end
+    #-------------------------------------------------------------------------#
+    # Finally we pull regulator strength - intilized at 0
+    # The idea is that during initialization we just use the ones with 0s
+    # we can add overlaps and the strength will determine how strongly
+    # the regulator will resist change
+    #-------------------------------------------------------------------------#
+
+    regulator_strength = sample.gene_set.regulator_strength
     for g in eachindex(grns)
         grn = repressilator(regulator_strength)
         grn_set[grns[g]] = grn
     end
+    sample.grn_set = grn_set
+    # update_grns!(sample.cells,grn_set)
+    return sample
+end
+
+function add_grns!(sample::SampleState,
+    use::Union{Symbol, Vector{Symbol}}= :cell_types,
+    overwrite::Bool = false)::SampleState
+    #-------------------------------------------------------------------------#
+    # This will need to be refactored
+    # It's not very elegant
+    #-------------------------------------------------------------------------#
+    if isa(use, Symbol)
+        grns = unique(check_field_value(sample.tissue, use))
+    else
+        grns = unique([check_field_value(sample.tissue,i) for i in use])
+    end
+    #-------------------------------------------------------------------------#
+    # Check if GRns are already present otherwise add to existing 
+    #-------------------------------------------------------------------------#
+    if isnothing(sample.grn_set)
+        grn_set = Dict{String,GRN}()
+    else
+        grn_set = sample.grn_set
+    end
+
+    #-------------------------------------------------------------------------#
+    # check if we overwrite or not - this is useful if we want to add
+    # more than one grn per category
+    #-------------------------------------------------------------------------#
+    if !overwrite
+        grns = make_unique_keys(grn_set, grns)
+    end
+    #-------------------------------------------------------------------------#
+    # Finally we pull regulator strength - intilized at 0
+    # The idea is that during initialization we just use the ones with 0s
+    # we can add overlaps and the strength will determine how strongly
+    # the regulator will resist change
+    #-------------------------------------------------------------------------#
+
+    regulator_strength = sample.gene_set.regulator_strength
+    for g in eachindex(grns)
+        grn = repressilator(regulator_strength)
+        grn_set[grns[g]] = grn
+    end
+    sample.grn_set = grn_set
+    # update_grns!(sample.cells,grn_set)
+    return sample
 end

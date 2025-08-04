@@ -40,15 +40,20 @@ end
 function Base.show(io::IO, ::MIME"text/plain",x::GRN)
     println(io,"GRN Struct")
 end
+#-----------------------------------------------------------------------------#
+# CellInfo - meta data storage for fast lookup and replacement
+#-----------------------------------------------------------------------------#
+Base.@kwdef mutable struct CellInfo
+    celltype::Union{String, Nothing} = nothing
+    domain::Union{String, Nothing} = nothing
+end
 
 #-----------------------------------------------------------------------------#
 # Cell States struct
 #-----------------------------------------------------------------------------#
 Base.@kwdef mutable struct CellState
-    cell_type:: Union{Nothing,String}
-    domain::Union{Nothing, String}
+    cell_info::CellInfo = nothing # Maybe using a dict to keep all the meta info will be better
     cycle_position::Int64
-    grn_set::Union{Dict, Nothing} = nothing
     ecosystem::Union{Matrix{Float64},Nothing} = nothing
     coordinates::Tuple{Float64,Float64,Float64}
     chromatin_state::Union{SparseVector,Nothing} = nothing

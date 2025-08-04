@@ -84,8 +84,6 @@ function initialize_cells(
     cell_vec = Vector{CellState}(undef,n_cells)
     for c in 1:n_cells
         cell = initialize_cell(
-            nothing,
-            nothing,
             coordinates[c],
             n_genes)
         cell_vec[c] = cell
@@ -94,21 +92,18 @@ function initialize_cells(
 end
 
 function initialize_cell(
-    cell_type::Union{Nothing, String},
-    domain::Union{Nothing, String},
     coordinates::Tuple{Float64,Float64,Float64},
     n_genes::Int64 = 2000)::CellState
     rna = initialize_rank(n_genes)
     protein = initialize_rank(n_genes)
-    cycle_position = rand(temporal_state) # 6 layers at the moment 
+    cycle_position = rand(temporal_state) # 6 layers at the moment
+    cell_info = CellInfo()
     #-------------------------------------------------------------------------#
     # build cell state struct
     #-------------------------------------------------------------------------#
     cell = CellState(
-        cell_type = cell_type,
-        domain = domain,
+        cell_info = cell_info,
         cycle_position = cycle_position,
-        grn_set = nothing,
         ecosystem = nothing,
         coordinates = coordinates,
         chromatin_state = nothing,
@@ -120,19 +115,19 @@ function initialize_cell(
     return cell
 end
 
+function add_cells(
+    sample::SampleState,
+    n_types::Int64 = 5,
+    domain_bound::Bool = false)::SampleState
+    if domain_bound
+        
+    else
 
-function update_cells(cells::Vector{CellState},
-    what::Vector,
-    field::Symbol)::Vector{CellState}
-    for c in eachindex(cells)
-        update = what[c]
-        setfield!(cells[c], field, update)
     end
-    return cells
 end
 
 
-function add_cells(sample::SampleState)
+function add_cells_old(sample::SampleState)
     #-------------------------------------------------------------------------#
     # Initialize state vectors
     # Temporal state represent which biological level should we start the loop 

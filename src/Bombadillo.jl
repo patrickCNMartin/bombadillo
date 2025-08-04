@@ -37,5 +37,6 @@ export Tissue,
     repressilator,
     plot_tissue,
     initialize_sample,
-    add_spheres
+    add_spheres,
+    add_grns
 end
