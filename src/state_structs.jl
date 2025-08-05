@@ -3,9 +3,10 @@
 #-----------------------------------------------------------------------------#
 const temporal_state = [1,2,3,4,5,6]
 #-----------------------------------------------------------------------------#
-# Structs
+# depends
 #-----------------------------------------------------------------------------#
 using SparseArrays
+using Parameters
 #-----------------------------------------------------------------------------#
 # Gene struct - no need for mutability once set. 
 #-----------------------------------------------------------------------------#
@@ -31,10 +32,10 @@ Base.@kwdef struct GRN
     regulatory_rel::Matrix{Int64}# columns as GRN "steps"
     regulators::Vector{Int64} # What genes are involved?
     regulator_strength::Vector{Float64} # How strongly are they "on" - master regulator always 1
-    messaging_output::Vector{Int64}# Messages that will be diffused out
-    metabolic_output::Vector{Int64}# Catch all for everything else
-    chromatin_remodelling::Vector{Int64} # If they remodel chromatin - where do they do that?
-    tf_binding::Vector{Int64}# If they bind somewhere where do they do that?
+    messaging_output::Union{Nothing,Vector{Int64}} = nothing# Messages that will be diffused out
+    metabolic_output::Union{Nothing,Vector{Int64}} = nothing# Catch all for everything else
+    chromatin_remodelling::Union{Nothing,Vector{Int64}} = nothing # If they remodel chromatin - where do they do that?
+    tf_binding::Union{Nothing,Vector{Int64}} = nothing# If they bind somewhere where do they do that?
 end
 
 function Base.show(io::IO, ::MIME"text/plain",x::GRN)
@@ -88,14 +89,13 @@ end
 
 #-----------------------------------------------------------------------------#
 # Temporal Struct - state progression info? keept track of part states?
+# removing the saving part for now it is too heavy and not useful 
+# during early proto
 #-----------------------------------------------------------------------------#
 Base.@kwdef mutable struct TemporalState
-    total_steps::Int64
-    current_step::Int64
-    sample_at::Vector{Int64}
-    past_state::Tuple{Vector{CellState},Vector{TissueState}}
-    current_state::Tuple{Vector{CellState},Vector{TissueState}}
-    save_states::Bool = false
+    total_steps::Union{Int64, Nothing} = nothing
+    current_step::Int64 = 0
+    sample_at::Union{Vector{Int64},Nothing} = nothing
 end
 function Base.show(io::IO, ::MIME"text/plain",x::TemporalState)
     println(io,"TemporalState Struct:")

@@ -117,65 +117,49 @@ end
 
 function add_cells(
     sample::SampleState,
-    n_types::Int64 = 5,
+    n_types::Int64 = 5;
     domain_bound::Bool = false)::SampleState
     if domain_bound
-        
+        domains = check_field_value(sample.tissue, :domains)
+        celltypes = Vector{Int64}(undef, length(domains))
+        init_cells = 1:n_types
+        for d in unique(domains)
+            local_domain = domains[domains .== d]
+            celltypes[domains .== d] .= rand(init_cells,length(local_domain))
+            init_cells = maximum(init_cells):(maximum(init_cells) + n_types)
+        end
     else
-
+        celltypes = rand(1:n_types,sample.n_cells)
     end
+    celltypes = string.("celltype_",celltypes)
+    sample.tissue.cell_types = celltypes
+    update_cell_info!(sample.cells,celltypes,:celltype)
+    return sample
 end
 
 
-function add_cells_old(sample::SampleState)
-    #-------------------------------------------------------------------------#
-    # Initialize state vectors
-    # Temporal state represent which biological level should we start the loop 
-    # i.e. chromatin, tf_binding, etc. 
-    # We will set a convention that state 1 is RNA
-    #-------------------------------------------------------------------------#
-    cell_info = [cell_type, domain]
-    grn_local = Dict(k=> grn_set[k] for k in cell_info if haskey(grn_set, k))
-    chromatin = initialize_state(grn_local,
-        n_genes,
-        :chromatin_remodelling,
-        x -> x != 0)
-    tf = initialize_state(grn_local,
-        n_genes,
-        :tf_binding,
-        x -> x > 0)
-    
-    messaging = initialize_state(grn_local,
-        n_genes,
-        :messaging_output,
-        x -> x != 0)
-    metabolome = initialize_state(grn_local,
-        n_genes,
-        :metabolic_output,
-        x -> x != 0)
-end
-
-
-using SparseArrays
-function initialize_state(grn_set::Dict,
-    n_genes::Int64,
-    layer::Symbol,
-    condition::Function)
-    locs = Vector{Vector}(undef, length(grn_set))
-    values = Vector{Vector}(undef, length(grn_set))
-    count = 1
-    for (_,grn) in grn_set
-        l, v = grn_search(grn, layer, condition)
-        locs[count] = l
-        values[count] = v
-        count += 1
+function add_cells!(
+    sample::SampleState,
+    n_types::Int64 = 5;
+    domain_bound::Bool = false)::SampleState
+    if domain_bound
+        domains = check_field_value(sample.tissue, :domains)
+        celltypes = Vector{Int64}(undef, length(domains))
+        init_cells = 1:n_types
+        for d in unique(domains)
+            local_domain = domains[domains .== d]
+            celltypes[domains .== d] .= rand(init_cells,length(local_domain))
+            init_cells = maximum(init_cells):(maximum(init_cells) + n_types)
+        end
+    else
+        celltypes = rand(1:n_types,sample.n_cells)
     end
-    concat_locs = vcat(locs)
-    sparse_locs = unique(i -> concat_locs[i], eachindex(concat_locs))
-    sparse_values = vcat(values)[sparse_locs]
-    state = sparsevec(sparse_locs,sparse_values,n_genes)
-    return state
+    celltypes = string.("celltype_",celltypes)
+    sample.tissue.cell_types = celltypes
+    update_cell_info!(sample.cells,celltypes,:celltype)
+    return sample
 end
+
 
 
 function initialize_rank(n_genes)

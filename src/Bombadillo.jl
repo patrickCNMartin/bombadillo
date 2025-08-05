@@ -14,6 +14,7 @@ include("generate_ecosystems.jl")
 include("generate_genes.jl")
 include("generate_grn.jl")
 include("generate_samples.jl")
+include("cycle.jl")
 include("visualization.jl")
 
 export Tissue,
@@ -38,5 +39,7 @@ export Tissue,
     plot_tissue,
     initialize_sample,
     add_spheres,
-    add_grns
+    add_grns,
+    initialize_cycling!,
+    cycle_sample
 end

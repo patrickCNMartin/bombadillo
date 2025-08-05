@@ -29,10 +29,10 @@ function repressilator(
     grn = GRN(regulatory_rel = reg_rel,
         regulators = regulators,
         regulator_strength = strengths,
-        messaging_output = zeros(n_regulators),
-        metabolic_output = zeros(n_regulators),
-        chromatin_remodelling = ones(n_regulators),
-        tf_binding = regulators)
+        messaging_output = nothing,
+        metabolic_output = nothing,
+        chromatin_remodelling = nothing,
+        tf_binding = (-1) * regulators)
     return grn
 end
 
@@ -81,14 +81,14 @@ function compute_grn_overlaps(
 end
 
 
-function grn_search(grn::GRN,
-    field_name::Symbol,
-    condition::Function)::Tuple
-    field = getfield(grn, field_name)
-    locs = findall(condition, field)
-    values = field[locs]
-    return (locs, values)
-end
+# function grn_search(grn::GRN,
+#     field_name::Symbol,
+#     condition::Function)::Tuple
+#     field = getfield(grn, field_name)
+#     locs = findall(condition, field)
+#     values = field[locs]
+#     return (locs, values)
+# end
 
 #-----------------------------------------------------------------------------#
 # add grns for simple type such as cells or domain 
