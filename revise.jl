@@ -1,4 +1,5 @@
 using Revise
+using Debugger
 using Pkg
 Pkg.activate(".")
 using Bombadillo

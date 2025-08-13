@@ -31,6 +31,7 @@ end
 Base.@kwdef struct GRN
     regulatory_rel::Matrix{Int64}# columns as GRN "steps"
     regulators::Vector{Int64} # What genes are involved?
+    strength_range::Tuple{Float64,Float64} = (0.5,1.0)
     regulator_strength::Vector{Float64} # How strongly are they "on" - master regulator always 1
     messaging_output::Union{Nothing,Vector{Int64}} = nothing# Messages that will be diffused out
     metabolic_output::Union{Nothing,Vector{Int64}} = nothing# Catch all for everything else
@@ -93,7 +94,7 @@ end
 # during early proto
 #-----------------------------------------------------------------------------#
 Base.@kwdef mutable struct TemporalState
-    total_steps::Union{Int64, Nothing} = nothing
+    total_steps::Union{Int64, Nothing} = 0
     current_step::Int64 = 0
     sample_at::Union{Vector{Int64},Nothing} = nothing
 end
@@ -111,7 +112,7 @@ Base.@kwdef mutable struct SampleState
     tissue::Union{TissueState, Nothing} = nothing
     cells::Union{Vector{CellState},Nothing} = nothing
     grn_set::Union{Dict, Nothing} = nothing
-    gene_set::Union{GeneState, Nothing} = nothing
+    gene_state::Union{GeneState, Nothing} = nothing
     temporal_state::Union{Nothing,TemporalState} = nothing
     biological_out::Vector{String} = ["rna"]
     out::Union{SparseMatrixCSC{Float64},Nothing} = nothing

@@ -74,7 +74,7 @@ function initialize_genes(
     #-------------------------------------------------------------------------#
     genes = string.("gene_",1:n_genes)
     regulator_strength = zeros(Float64, n_genes)
-    saturation_rank = rand([n_genes / 2, n_genes],n_genes)
+    saturation_rank = n_genes .- rand((n_genes / 2):n_genes, n_genes)
     leak_rate = rand([0,max_leak],n_genes)
     decay_rate = rand([max_leak, max_decay],n_genes) .* (-1)
     translation_efficiency = rand(

@@ -1,8 +1,6 @@
 module Bombadillo
 
 
-# abstract type Tissue end
-# abstract type BaseCellType end
 
 include("tissue_structs.jl")
 include("state_structs.jl")
@@ -41,5 +39,5 @@ export Tissue,
     add_spheres,
     add_grns,
     initialize_cycling!,
-    cycle_sample
+    let_live
 end

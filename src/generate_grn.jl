@@ -28,10 +28,11 @@ function repressilator(
     #-------------------------------------------------------------------------#
     grn = GRN(regulatory_rel = reg_rel,
         regulators = regulators,
-        regulator_strength = strengths,
+        strength_range = (0.99,1.0),
+        regulator_strength = (-1) * strengths,
         messaging_output = nothing,
         metabolic_output = nothing,
-        chromatin_remodelling = nothing,
+        chromatin_remodelling = regulators,
         tf_binding = (-1) * regulators)
     return grn
 end
@@ -129,7 +130,7 @@ function add_grns(sample::SampleState,
     # the regulator will resist change
     #-------------------------------------------------------------------------#
 
-    regulator_strength = sample.gene_set.regulator_strength
+    regulator_strength = sample.gene_state.regulator_strength
     for g in eachindex(grns)
         grn = repressilator(regulator_strength)
         grn_set[grns[g]] = grn
@@ -174,7 +175,7 @@ function add_grns!(sample::SampleState,
     # the regulator will resist change
     #-------------------------------------------------------------------------#
 
-    regulator_strength = sample.gene_set.regulator_strength
+    regulator_strength = sample.gene_state.regulator_strength
     for g in eachindex(grns)
         grn = repressilator(regulator_strength)
         grn_set[grns[g]] = grn

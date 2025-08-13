@@ -140,6 +140,6 @@ function initialize_sample(
         batch = batch,
         tissue = tissue,
         cells = cells,
-        gene_set = genes)
+        gene_state = genes)
     return sample
 end
