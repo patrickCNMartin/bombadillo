@@ -90,7 +90,7 @@ end
 
 
 function cycle_chromatin!(cell::CellState, gene_state::GeneState)::CellState
-    cell.cycle_position = circshift(temporal_state, (-1) * cell.cycle_position)
+    cell.cycle_position = circshift(temporal_state, (-1) * cell.cycle_position)[1]
     # what is the probablity of getting a state change
     chromatin_state = cell.chromatin_state
     idx, val = findnz(chromatin_state)
@@ -105,13 +105,13 @@ function cycle_chromatin!(cell::CellState, gene_state::GeneState)::CellState
 end
 
 function cycle_binding!(cell::CellState, gene_state::GeneState)::CellState
-    cell.cycle_position = circshift(temporal_state, (-1) * cell.cycle_position)
+    cell.cycle_position = circshift(temporal_state, (-1) * cell.cycle_position)[1]
     chromatin_state = cell.chromatin_state
     tf_binding = cell.binding_state
     idx , val = findnz(tf_binding)
     for (i, v) in zip(idx, val)
         cs_prob = chromatin_state[i]
-        tf_prob = v
+        tf_prob = abs(v) # we use abs since the signs only define if the gene is repressed or activated
         prob = (cs_prob + tf_prob) / 2
         tf_binding[i] = sign(v) * prob
     end
@@ -119,45 +119,88 @@ function cycle_binding!(cell::CellState, gene_state::GeneState)::CellState
     return cell
 end
 function cycle_rna!(cell::CellState, gene_state::GeneState)::CellState
-    cell.cycle_position = circshift(temporal_state, (-1) * cell.cycle_position)
+    cell.cycle_position = circshift(temporal_state, (-1) * cell.cycle_position)[1]
     rna = cell.rna_state
     saturation = gene_state.saturation_rank
     leak_rate = gene_state.leak_rate
     decay_rate = gene_state.decay_rate
     tf_binding = cell.binding_state
+    n_genes = gene_state.n_genes
     idx, val = findnz(tf_binding)
+    transcribe = [true, false]
     for (i, v) in zip(idx, val)
         # dirty trick if it comes at 0 just add one rank
         shift_max = abs(saturation[i] - rna[i]) + 1
-        shift = (sign(v) * rand(0:shift_max)) +
-            leak_rate[i] +
+        # I don't think random shift is the way to go here
+        # the other issue is that this will make It
+        # harder when adding decaying shifts
+        # Will need to rework that 
+        # TODO rework this while section 
+        # TODO. add seperate functions for shifting
+        # I think using (-) signs here makes more sense
+        # It's more intuitive to think of decay as going down
+        # even though it terms of rank index that means going up
+        shift = -(sign(v) * round(logistic_sampling((0.0,Float64(shift_max))))) -
+            leak_rate[i] -
             decay_rate[i]
-        rank = rna[i] + shift
-        rna[i] = minimum([saturation[i], rank])
+        if v > 1 || v < -1
+            println(i)
+            println(v)
+        end
+        shift_prob = [abs(v), 1 - abs(v)] 
+        shift_dist = Categorical(shift_prob)
+        bound_site = transcribe[rand(shift_dist)]
+        if bound_site
+            rank = rna[i] - shift
+            if 1 <= rank <= n_genes
+                rank = maximum([saturation[i], rank])
+            elseif rank < 1
+                rank = 1
+            else
+                rank = n_genes
+            end
+            rna[i] = rank
+        end
+        
     end
     cell.rna_state = rna
     return cell
 end
 function cycle_protein!(cell::CellState, gene_state::GeneState)::CellState
-    cell.cycle_position = circshift(temporal_state, (-1) * cell.cycle_position)
+    cell.cycle_position = circshift(temporal_state, (-1) * cell.cycle_position)[1]
     protein = cell.protein_state
     rna = cell.rna_state
+    tf,_ = findnz(cell.binding_state)
     decay_rate = gene_state.decay_rate
     translation_efficiency = gene_state.translation_efficiency
+    saturation = gene_state.saturation_rank
+    n_genes = gene_state.n_genes
     for p in eachindex(protein)
-        rank = round(Int,rna[p] * translation_efficiency[p]) + decay_rate[p]
+        rank = round(Int,rna[p] * (1 / translation_efficiency[p])) - decay_rate[p]
+        if p ∈ tf
+            sat = (n_genes - rank) / (n_genes - saturation[p])
+            if sat > 1.0
+                sat = 1.0
+            elseif sat == 0.0
+                # just add some noise here to avoid 0 sampling
+                # Arbitratry but small chance of having spontanous activation
+                sat = 0.05
+            end
+            prob = logistic_sampling((0.0, abs(sat)))
+            cell.binding_state[p] = prob
+        end
         protein[p] = rank
     end
     cell.protein_state = protein
     return cell
 end
 function cycle_messaging!(cell::CellState, gene_state::GeneState)::CellState
-    cell.cycle_position = circshift(temporal_state, (-1) * cell.cycle_position)
+    cell.cycle_position = circshift(temporal_state, (-1) * cell.cycle_position)[1]
     return cell
 end
 
 function cycle_metabolome!(cell::CellState, gene_state::GeneState)::CellState
-    cell.cycle_position = circshift(temporal_state, (-1) * cell.cycle_position)
+    cell.cycle_position = circshift(temporal_state, (-1) * cell.cycle_position)[1]
     return cell
 end
 

@@ -39,5 +39,8 @@ export Tissue,
     add_spheres,
     add_grns,
     initialize_cycling!,
-    let_live
+    let_live,
+    add_counts, 
+    generate_gene_sample,
+    export_sample
 end

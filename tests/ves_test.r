@@ -2,11 +2,11 @@ library(vesalius)
 library(ggpubr)
 library(ggplot2)
 
-coord <- read.csv("data/spatial_data_all_coordinates.csv")
+coord <- read.csv("tests/Data/cycle_spatial_sample_coordinates.csv")
 coord$x <- coord$x * 1000
 coord$y <- coord$y * 1000
 
-counts <- read.csv("data/spatial_data_all_counts.csv", row.names = 1)
+counts <- read.csv("tests/Data/cycle_spatial_sample_counts.csv", row.names = 1)
 
 cells <- coord$cell_labels
 names(cells) <- coord$barcodes

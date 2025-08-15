@@ -1,18 +1,22 @@
 
 function repressilator(
-    regulator_strength::Vector{Float64};
-    n_regulators::Int64 = 3)::GRN
+    regulator_strength::Vector{Float64},
+    gene_state::GeneState;
+    n_regulators::Int64 = 3)::Tuple{GRN,GeneState}
     #-------------------------------------------------------------------------#
     # This function selects genes to use in the repressilator
     # We can define overlaps with other genes 
     # And how strong they are "on"
     # Return Vector{Int64} and Vector{Float64}
+    # Hardcoded values for now just to test it
+    # I think I would need a GRN designed model
     #-------------------------------------------------------------------------#
     regulators, strengths = compute_grn_overlaps(
         regulator_strength,
         overlap_range = (0.0,0.0),
         strength_range = (0.99,1.0),
         g = n_regulators)
+    gene_state.leak_rate[regulators] .= 200
     #-------------------------------------------------------------------------#
     # Function tp shift indices to make a circular repressilator of 
     # arbitrary size - sign just add a negavtive sign for "repression"
@@ -34,7 +38,7 @@ function repressilator(
         metabolic_output = nothing,
         chromatin_remodelling = regulators,
         tf_binding = (-1) * regulators)
-    return grn
+    return grn, gene_state
 end
 
 # function template_grn(regulator_strength::Vector{Float64};
@@ -96,7 +100,7 @@ end
 # we will add messaging_output seperately i guess
 #-----------------------------------------------------------------------------#
 function add_grns(sample::SampleState,
-    use::Union{Symbol, Vector{Symbol}}= :cell_types,
+    use::Union{Symbol, Vector{Symbol}} = :cell_types,
     overwrite::Bool = false)::SampleState
     #-------------------------------------------------------------------------#
     # This will need to be refactored
@@ -129,19 +133,21 @@ function add_grns(sample::SampleState,
     # we can add overlaps and the strength will determine how strongly
     # the regulator will resist change
     #-------------------------------------------------------------------------#
-
+    gene_state = sample.gene_state
     regulator_strength = sample.gene_state.regulator_strength
     for g in eachindex(grns)
-        grn = repressilator(regulator_strength)
+        grn,gene_state = repressilator(regulator_strength, gene_state)
         grn_set[grns[g]] = grn
     end
     sample.grn_set = grn_set
-    # update_grns!(sample.cells,grn_set)
+    sample.gene_state = gene_state
+    
     return sample
 end
 
+
 function add_grns!(sample::SampleState,
-    use::Union{Symbol, Vector{Symbol}}= :cell_types,
+    use::Union{Symbol, Vector{Symbol}} = :cell_types,
     overwrite::Bool = false)::SampleState
     #-------------------------------------------------------------------------#
     # This will need to be refactored
@@ -175,12 +181,13 @@ function add_grns!(sample::SampleState,
     # the regulator will resist change
     #-------------------------------------------------------------------------#
 
+    gene_state = sample.gene_state
     regulator_strength = sample.gene_state.regulator_strength
     for g in eachindex(grns)
-        grn = repressilator(regulator_strength)
+        grn,gene_state = repressilator(regulator_strength, gene_state)
         grn_set[grns[g]] = grn
     end
     sample.grn_set = grn_set
-    # update_grns!(sample.cells,grn_set)
+    sample.gene_state = gene_state
     return sample
 end

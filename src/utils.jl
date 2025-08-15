@@ -120,6 +120,17 @@ function make_unique_keys(dict::Dict, keys::Vector{String})
     return new_keys
 end
 
+function logistic_sampling(
+    range::Tuple{Float64,Float64},
+    s::Float64 = 10.0)
+    # Parameters
+    a, b = range
+    μ = b
+    s = (b - a) / s 
+    dist = Truncated(Logistic(μ, s), a, b)
+    sample = rand(dist)
+    return sample
+end
 #-----------------------------------------------------------------------------#
 # Struct manipulation functions
 #-----------------------------------------------------------------------------#

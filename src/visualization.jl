@@ -45,3 +45,14 @@ function plot_tissue(sample::SampleState,
         throw(ArgumentError("dim should either be 2 or 3"))
     end
 end
+
+
+#-----------------------------------------------------------------------------#
+# Viz functions for spatial data stuff
+# these are all very rough functions that I might not keep in the long run
+# I just want to see what it looks like at test a few ideas 
+#-----------------------------------------------------------------------------#
+function view_embeddings(sample::SampleState)
+    out = transpose(Matrix(sample.out))
+    pca = fit(PCA, out;maxoutdim=3)
+end
