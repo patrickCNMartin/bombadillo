@@ -42,5 +42,7 @@ export Tissue,
     let_live,
     add_counts, 
     generate_gene_sample,
-    export_sample
+    export_sample,
+    view_gene_cycle,
+    view_tissue_cycle
 end

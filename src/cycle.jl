@@ -1,16 +1,51 @@
 function let_live(
     sample::SampleState,
-    cycles::Int64 = 100)::SampleState
+    cycles::Int = 100,
+    sample_genes::Union{Nothing, String, Vector{String}} = nothing;
+    pull_layer::Symbol = :rna_state
+)
+    
     if isnothing(sample.temporal_state)
-        cycle_state = TemporalState(
-            total_steps = cycles)
+        cycle_state = TemporalState(total_steps = cycles)
         initialize_cycling!(sample)
         sample.temporal_state = cycle_state
     end
+    
+    
+    gene_cycle = initialize_gene_pull(sample_genes, cycles, sample.n_cells)
+    
+    
     for cycle in 1:cycles
         cycle_sample!(sample, cycle)
+        if gene_cycle !== nothing
+            gene_pull!(gene_cycle, sample_genes, sample, cycle, pull_layer)
+        end
     end
-    return sample
+    return isnothing(gene_cycle) ? sample : (sample, gene_cycle)
+end
+
+
+using DataFrames
+function initialize_gene_pull(sample_genes, cycles::Int, n_cells::Int)::Union{Vector{DataFrame},Nothing}
+    if isnothing(sample_genes)
+        return nothing
+
+    elseif isa(sample_genes, String)
+        dfs = [DataFrame([Symbol("Cycle$(c)") => Vector{Float64}(undef, n_cells) 
+                          for c in 1:cycles]...)]
+        
+    elseif isa(sample_genes, Vector{String})
+        dfs = Vector{DataFrame}(undef, length(sample_genes))
+        for (i, g) in enumerate(sample_genes)
+            dfs[i] = DataFrame([Symbol("Cycle$(c)") => Vector{Float64}(undef, n_cells) 
+                                for c in 1:cycles]...)
+        end
+
+    else
+        throw(TypeError("Unknown type for calling genes - use String or Vector{String}"))
+    end
+
+    return dfs
 end
 
 
@@ -83,6 +118,9 @@ function initialize_state(grn_set::Dict{String, Bombadillo.GRN},
     else
         sparse_locs = collect(keys(state))
         sparse_values = collect(values(state))
+        if any(x-> x > 1 || x < -1,sparse_values)
+            print(sparse_values)
+        end
         init_state = sparsevec(sparse_locs, sparse_values, n_genes)
     end
     return init_state
@@ -112,7 +150,7 @@ function cycle_binding!(cell::CellState, gene_state::GeneState)::CellState
     for (i, v) in zip(idx, val)
         cs_prob = chromatin_state[i]
         tf_prob = abs(v) # we use abs since the signs only define if the gene is repressed or activated
-        prob = (cs_prob + tf_prob) / 2
+        prob = (cs_prob + tf_prob) / 2  
         tf_binding[i] = sign(v) * prob
     end
     cell.binding_state = tf_binding
@@ -144,8 +182,8 @@ function cycle_rna!(cell::CellState, gene_state::GeneState)::CellState
             leak_rate[i] -
             decay_rate[i]
         if v > 1 || v < -1
-            println(i)
-            println(v)
+            # println(i)
+            # println(v)
         end
         shift_prob = [abs(v), 1 - abs(v)] 
         shift_dist = Categorical(shift_prob)
@@ -179,7 +217,8 @@ function cycle_protein!(cell::CellState, gene_state::GeneState)::CellState
         rank = round(Int,rna[p] * (1 / translation_efficiency[p])) - decay_rate[p]
         if p ∈ tf
             sat = (n_genes - rank) / (n_genes - saturation[p])
-            if sat > 1.0
+            p_direction = sign(sat)
+            if sat > 1.0 || sat < -1
                 sat = 1.0
             elseif sat == 0.0
                 # just add some noise here to avoid 0 sampling
@@ -187,7 +226,7 @@ function cycle_protein!(cell::CellState, gene_state::GeneState)::CellState
                 sat = 0.05
             end
             prob = logistic_sampling((0.0, abs(sat)))
-            cell.binding_state[p] = prob
+            cell.binding_state[p] = p_direction * prob
         end
         protein[p] = rank
     end
@@ -225,3 +264,31 @@ function cycle_sample!(sample::SampleState, cycle::Int)::SampleState
     return sample
 end
 
+
+
+function gene_pull!(
+    gene_cycle::Vector{DataFrame},
+    genes::Union{String,Vector{String}},
+    sample::SampleState,
+    cycle::Int,
+    pull_layer::Symbol)::Vector{DataFrame}
+
+    gene_index = findall(g -> g ∈ genes, sample.gene_state.genes)
+    cells = sample.cells
+
+    for (i, gidx) in enumerate(gene_index)
+        
+        state = similar(cells, Float64)
+        @inbounds @simd for j in eachindex(cells)
+            state[j] = pull_state(cells[j], pull_layer, gidx)
+        end
+        @views gene_cycle[i][!, cycle] .= state
+    end
+
+    return gene_cycle
+end
+
+
+function pull_state(cell::CellState, layer::Symbol, index::Int)
+    return getfield(cell,layer)[index]
+end
