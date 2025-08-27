@@ -46,23 +46,23 @@ function add_shift(
     return shifts
 end
 
-function add_cells(
-    cell_params::BaseCells,
-    tissue::Tissue;
-    shift_type::Vector{String} = ["type_shifts","contact_shifts","wave_shifts"]
-    )::BaseCells
-    if shift_type isa String
-        shift_type = [shift_types]
-    end
-    types = sort(unique(collect(values(tissue.cell_labels))))
-    for shift in shift_type
-        shift_set = add_shift_set(types, cell_params, Symbol(shift))
-        setfield!(cell_params, Symbol(shift), shift_set)
-    end
-    cell_params.types = types
-    cell_params.shift_type = shift_type
-    return cell_params
-end
+# function add_cells(
+#     cell_params::BaseCells,
+#     tissue::Tissue;
+#     shift_type::Vector{String} = ["type_shifts","contact_shifts","wave_shifts"]
+#     )::BaseCells
+#     if shift_type isa String
+#         shift_type = [shift_types]
+#     end
+#     types = sort(unique(collect(values(tissue.cell_labels))))
+#     for shift in shift_type
+#         shift_set = add_shift_set(types, cell_params, Symbol(shift))
+#         setfield!(cell_params, Symbol(shift), shift_set)
+#     end
+#     cell_params.types = types
+#     cell_params.shift_type = shift_type
+#     return cell_params
+# end
 
 #-----------------------------------------------------------------------------#
 # New cells struct usage 
@@ -93,10 +93,15 @@ end
 
 function initialize_cell(
     coordinates::Tuple{Float64,Float64,Float64},
-    n_genes::Int64 = 2000)::CellState
+    n_genes::Int64 = 2000,
+    synchronize_cells::Bool = true)::CellState
     rna = initialize_rank(n_genes)
     protein = initialize_rank(n_genes)
-    cycle_position = rand(temporal_state) # 6 layers at the moment
+    if synchronize_cells
+        cycle_position = 1
+    else
+        cycle_position = rand(temporal_state)
+    end
     cell_info = CellInfo()
     #-------------------------------------------------------------------------#
     # build cell state struct

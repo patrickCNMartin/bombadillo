@@ -63,14 +63,15 @@ function view_gene_cycle(
 )
     gr()
     panels = ceil(Int, sqrt(length(gene_pull)))
-
+    # making copy of gene pull to avoid any change at global level
+    gene_shift = deepcopy(gene_pull)
     if merge_cells
-        gene_vec = Vector{Vector{Float64}}(undef, length(gene_pull))
+        gene_vec = Vector{Vector{Float64}}(undef, length(gene_shift))
         min_y = 2000 # Use a starting value with maximum potential rnak shift
         max_y = 0.0
-        n_cells = size(gene_pull[1],1)
-        n_cycles = size(gene_pull[1],2)
-        for (i, g) in enumerate(gene_pull)
+        n_cells = size(gene_shift[1],1)
+        n_cycles = size(gene_shift[1],2)
+        for (i, g) in enumerate(gene_shift)
             d = zeros(Float64, n_cells, n_cycles)
             for t in 2:n_cycles
                 @views d[:, t] .= g[:, t] .- g[:, t-1]
@@ -94,7 +95,7 @@ function view_gene_cycle(
 
     else
         if sort
-            for g in gene_pull
+            for g in gene_shift
                 numeric_cols = names(g, Number)
                 row_vars = [var(collect(skipmissing(r))) for r in eachrow(g[:, numeric_cols])]
                 g.row_variance = row_vars
@@ -104,7 +105,7 @@ function view_gene_cycle(
         end
 
         plot_array = Vector{Any}()
-        for (p, g) in enumerate(gene_pull)
+        for (p, g) in enumerate(gene_shift)
             numeric_cols = names(g, Number)
             local_plot = heatmap(Matrix(g[:, numeric_cols]),
                                  title="Gene $p", colorbar=true)
@@ -122,8 +123,7 @@ function view_tissue_cycle(
     output_path::String;
     dim::Int = 2,
     fps::Int = 10,
-    markersize::Real = 3
-)
+    markersize::Real = 3)
     plotly()
     try
         coordinates = sample.tissue.coordinates
@@ -147,20 +147,16 @@ function view_tissue_cycle(
         diff_mats = Vector{Matrix{Float64}}(undef, n_genes)
         global_max = 0.0
         for g in 1:n_genes
-            p = gene_pull[g]
-            d = zeros(Float64, n_cells, num_time)
-            for t in 2:num_time
-                @views d[:, t] .= p[:, t] .- p[:, t-1]
-            end
-            diff_mats[g] = d
-            m = maximum(abs, d)
+            diff_mat = delta_shift(gene_pull[g])
+            diff_mats[g] = diff_mat
+            m = maximum(abs, diff_mat)
             if isfinite(m) && m > global_max
                 global_max = m
             end
         end
         global_max = global_max == 0 ? 1.0 : global_max
         clims = (-global_max, global_max)
-        diverge = cgrad([:blue, "#f5f0e6", :red])
+        diverge = cgrad(["#2f4261", "#f5f3e4", "#9c2222"])
 
         anim = @animate for t in 1:num_time
             subplots = Plots.Plot[]
@@ -199,4 +195,15 @@ function view_tissue_cycle(
     finally
         gr()
     end
+end
+
+
+function delta_shift(pull::DataFrame)::Matrix
+    n_cells = size(pull, 1)
+    num_time = size(pull, 2)
+    delta_mat = zeros(Float64, n_cells, num_time)
+    for t in 2:num_time
+        @views delta_mat[:, t] .= pull[:, t] .- pull[:, t-1]
+    end
+    return delta_mat
 end

@@ -44,5 +44,6 @@ export Tissue,
     generate_gene_sample,
     export_sample,
     view_gene_cycle,
-    view_tissue_cycle
+    view_tissue_cycle,
+    delta_shift
 end

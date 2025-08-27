@@ -181,10 +181,7 @@ function cycle_rna!(cell::CellState, gene_state::GeneState)::CellState
         shift = -(sign(v) * round(logistic_sampling((0.0,Float64(shift_max))))) -
             leak_rate[i] -
             decay_rate[i]
-        if v > 1 || v < -1
-            # println(i)
-            # println(v)
-        end
+        #shift =  -(sign(v) * shift_max) - leak_rate[i] - decay_rate[i]
         shift_prob = [abs(v), 1 - abs(v)] 
         shift_dist = Categorical(shift_prob)
         bound_site = transcribe[rand(shift_dist)]
@@ -204,35 +201,23 @@ function cycle_rna!(cell::CellState, gene_state::GeneState)::CellState
     cell.rna_state = rna
     return cell
 end
-function cycle_protein!(cell::CellState, gene_state::GeneState)::CellState
+function cycle_protein!(cell::CellState,
+    gene_state::GeneState)::CellState
     cell.cycle_position = circshift(temporal_state, (-1) * cell.cycle_position)[1]
     protein = cell.protein_state
     rna = cell.rna_state
-    tf,_ = findnz(cell.binding_state)
     decay_rate = gene_state.decay_rate
     translation_efficiency = gene_state.translation_efficiency
-    saturation = gene_state.saturation_rank
-    n_genes = gene_state.n_genes
     for p in eachindex(protein)
         rank = round(Int,rna[p] * (1 / translation_efficiency[p])) - decay_rate[p]
-        if p ∈ tf
-            sat = (n_genes - rank) / (n_genes - saturation[p])
-            p_direction = sign(sat)
-            if sat > 1.0 || sat < -1
-                sat = 1.0
-            elseif sat == 0.0
-                # just add some noise here to avoid 0 sampling
-                # Arbitratry but small chance of having spontanous activation
-                sat = 0.05
-            end
-            prob = logistic_sampling((0.0, abs(sat)))
-            cell.binding_state[p] = p_direction * prob
-        end
         protein[p] = rank
     end
     cell.protein_state = protein
     return cell
 end
+
+
+
 function cycle_messaging!(cell::CellState, gene_state::GeneState)::CellState
     cell.cycle_position = circshift(temporal_state, (-1) * cell.cycle_position)[1]
     return cell
@@ -240,6 +225,75 @@ end
 
 function cycle_metabolome!(cell::CellState, gene_state::GeneState)::CellState
     cell.cycle_position = circshift(temporal_state, (-1) * cell.cycle_position)[1]
+    return cell
+end
+
+function cycle_regulation!(cell::CellState,
+    gene_state::GeneState,
+    grn_set::Dict{String,GRN})::CellState
+    # This will need to be update - using a function once we have 
+    # more complex GRNs and GRN shifts
+    info = [cell.cell_info.celltype,cell.cell_info.domain]
+    grn_local = Dict(k => grn_set[k] for k in info if haskey(grn_set,k))
+    saturation = gene_state.saturation_rank
+    n_genes = gene_state.n_genes
+    protein = cell.protein_state
+    for (_,g) in grn_local
+        # assuming that there will only be TF binding and chromatin State
+        if !isnothing(g.tf_binding)
+            update_regulation!(cell,
+                g,
+                protein,
+                saturation,
+                n_genes,
+                grn_layer = :tf_binding,
+                cell_layer = :binding_state)
+        end
+        if !isnothing(g.chromatin_remodelling)
+            update_regulation!(cell,
+                g,
+                protein,
+                saturation,
+                n_genes,
+                grn_layer = :chromatin_remodelling,
+                cell_layer = :chromatin_state)
+        end
+    end
+    return cell
+end
+
+function update_regulation!(cell::CellState,
+    grn::GRN,
+    protein::Vector{Int64},
+    saturation::Vector{Int64},
+    n_genes::Int64;
+    grn_layer::Symbol = :tf_binding,
+    cell_layer::Symbol = :binding_state)::CellState
+    grn_layer = getfield(grn, grn_layer)
+    cell_state = getfield(cell, cell_layer)
+    # pull GRN rels and subset 
+    regulation = grn.regulatory_rel
+    reg_index = abs.(regulation[:,2]) .∈ abs.(grn_layer)
+    regulation = regulation[reg_index,:]
+
+    for reg in eachrow(regulation)
+        regulator = reg[2]
+        target = reg[3]
+        p_direction = sign(regulator)
+        rank = protein[regulator]
+        local_saturation = saturation[regulator]
+        sat = (n_genes - rank) / (n_genes - local_saturation[p])
+        if sat > 1.0 || sat < -1
+                sat = 1.0
+        elseif sat == 0.0
+            # just add some noise here to avoid 0 sampling
+            # Arbitratry but small chance of having spontanous activation
+            sat = 0.05
+        end
+        prob = logistic_sampling((0.0, abs(sat)))
+        cell_state[target] = p_direction * prob
+    end
+    setfield!(cell, cell_layer, cell_state)
     return cell
 end
 
@@ -255,9 +309,11 @@ const cycle_cell = Dict{Int, Function}(
 function cycle_sample!(sample::SampleState, cycle::Int)::SampleState
     cells = sample.cells
     gene_state = sample.gene_state
+    grn_set = sample.grn_set
     for cell in cells 
         state = cell.cycle_position
         cycle_cell[state](cell, gene_state)
+        cycle_regulation!(cell,gene_state,grn_set)
     end
     sample.temporal_state.total_steps = cycle
     sample.temporal_state.current_step = cycle
