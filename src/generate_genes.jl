@@ -12,10 +12,10 @@ function initialize_genes(
     #-------------------------------------------------------------------------#
     genes = string.("gene_",1:n_genes)
     regulator_strength = zeros(Float64, n_genes)
-    remodeller_strength = zeros(Float64, n_genes)
+    remodeler_strength = zeros(Float64, n_genes)
     saturation_rank = n_genes .- rand((n_genes / 2):n_genes, n_genes)
-    leak_rate = rand([0,max_leak],n_genes)
-    decay_rate = rand([max_leak, max_decay],n_genes) .* (-1)
+    leak_rate = rand(0:max_leak,n_genes)
+    decay_rate = rand(max_leak:max_decay,n_genes) .* (-1)
     translation_efficiency = rand(
         Uniform(translation_efficiency[1],translation_efficiency[2]), n_genes)
     gene_state = GeneState(n_genes = n_genes,
@@ -25,7 +25,7 @@ function initialize_genes(
         decay_rate = decay_rate,
         translation_efficiency = translation_efficiency,
         regulator_strength = regulator_strength,
-        remodeller_strength = remodeller_strength)
+        remodeler_strength = remodeler_strength)
    
     return gene_state
 end

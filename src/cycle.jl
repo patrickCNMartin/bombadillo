@@ -87,11 +87,13 @@ function initialize_state(grn_set::Dict{String, Bombadillo.GRN},
     field::Symbol)::SparseVector{Float64, Int64}
     state = Dict{Int64, Float64}()
     for (_, grn) in grn_set
-        reg = grn.regulators
-        if field == :chromatin_state
-            str = grn.remodeller_strenght
+        
+        if field == :chromatin_remodelling
+            str = grn.remodeler_strength
+            reg = grn.regulators
         else
             str = grn.regulator_strength
+            reg = grn.regulators
         end
         
         effect_strength = grn.strength_range
@@ -107,14 +109,17 @@ function initialize_state(grn_set::Dict{String, Bombadillo.GRN},
             # maybe be mean strenght? 
             if haskey(state,loc_key) && loc_key ∉ reg
                 st =  rand(Uniform(effect_strength[1],effect_strength[2]))
-                if state[loc_key] < st
-                    state[loc_key] =  sign(layer[pr]) * st
+                if abs(state[loc_key]) < abs(st)
+                    state[loc_key] =  sign(layer[pr]) * abs(st)
                 end
             elseif haskey(state, loc_key) && loc_key ∈ reg
-                st = str[reg == loc_key]
-                if state[loc_key] < st
-                    state[loc_key] = sign(layer[pr]) * st
+                st = only(str[reg .== loc_key])
+                if abs(state[loc_key]) < abs(st)
+                    state[loc_key] = sign(layer[pr]) * abs(st)
                 end
+            elseif !haskey(state,loc_key) && loc_key ∈ reg
+                st = only(str[reg .== loc_key])
+                state[loc_key] = st
             else
                 state[loc_key] = sign(layer[pr]) * rand(Uniform(effect_strength[1],effect_strength[2]))
             end
@@ -138,20 +143,18 @@ function cycle_chromatin!(cell::CellState, gene_state::GeneState)::CellState
     cell.cycle_position = circshift(temporal_state, (-1) * cell.cycle_position)[1]
     # what is the probablity of getting a state change
     chromatin_state = cell.chromatin_state
+    tf_binding = cell.binding_state
     idx, val = findnz(chromatin_state)
-    flip = [1, -1]
     for (i, v) in zip(idx,val)
-        prob = [abs(v), 1 - abs(v)]
-        dist = Categorical(prob)
-        chromatin_state[i] = flip[rand(dist)] * v
+        binding_prob = abs(v) * abs(tf_binding[i]) * sign(tf_binding[i]) 
+        tf_binding[i] = binding_prob
     end
-    cell.chromatin_state = chromatin_state
+    cell.tf_binding = tf_binding
     return cell
 end
 
 function cycle_binding!(cell::CellState, gene_state::GeneState)::CellState
     cell.cycle_position = circshift(temporal_state, (-1) * cell.cycle_position)[1]
-    chromatin_state = cell.chromatin_state
     tf_binding = cell.binding_state
     idx , val = findnz(tf_binding)
     for (i, v) in zip(idx, val)

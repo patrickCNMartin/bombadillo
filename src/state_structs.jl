@@ -20,7 +20,7 @@ Base.@kwdef mutable struct GeneState
     decay_rate::Vector{Int64}
     translation_efficiency::Vector{Float64}
     regulator_strength::Vector{Float64}
-    remodeller_strength::Vector{Float64}
+    remodeler_strength::Vector{Float64}
 end
 function Base.show(io::IO, ::MIME"text/plain", x::GeneState)
     println(io, "GeneState Struct")
@@ -87,7 +87,7 @@ Base.@kwdef struct GRN
     regulators::Vector{Int64} # What genes are involved?
     strength_range::Tuple{Float64,Float64} = (0.5,1.0)
     regulator_strength::Vector{Float64} # How strongly are they "on" - master regulator always 1
-    remodeller_strenght::Vector{Float64} # How strongly do they modify chromatin
+    remodeler_strength::Vector{Float64} # How strongly do they modify chromatin
     messaging_output::Union{Nothing,Vector{Int64}} = nothing# Messages that will be diffused out
     metabolic_output::Union{Nothing,Vector{Int64}} = nothing# Catch all for everything else
     chromatin_remodelling::Union{Nothing,Vector{Int64}} = nothing # If they remodel chromatin - where do they do that?
@@ -128,13 +128,11 @@ function Base.show(io::IO, ::MIME"text/plain", x::GRN)
     println(io, "Strength Range: ", "(", format_val(x.strength_range[1]),
         ", ", format_val(x.strength_range[2]), ")")
 
-    # Regulator strength
-    println(io, "Regulator Strength: ",
-        [format_val(v) for v in x.regulator_strength[1:min(max_display, length(x.regulator_strength))]],
-        length(x.regulator_strength) > max_display ? " ..." : "")
 
     # Optional vector fields
     for (label, vec) in [
+        ("Regulator Strength", x.regulator_strength),
+        ("Remodeller Strength", x.remodeller_strenght),
         ("Messaging Output", x.messaging_output),
         ("Metabolic Output", x.metabolic_output),
         ("Chromatin Remodelling", x.chromatin_remodelling),

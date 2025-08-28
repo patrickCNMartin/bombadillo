@@ -1,7 +1,7 @@
 using Statistics
 function repressilator(
     regulator_strength::Vector{Float64},
-    remodeller_strenght::Vector{Float64},
+    remodeler_strength::Vector{Float64},
     gene_state::GeneState;
     n_regulators::Int64 = 3,
     percentile::Float64 = 0.1,
@@ -15,12 +15,14 @@ function repressilator(
     # Will do when we create the GRN creator tool kit
     #-------------------------------------------------------------------------#
     regulators = check_selected_regulators(regulator_strength)
-    remodellers = check_selected_regulators(remodeller_strenght)
-    regulators = intersect(regelators,remodellers)
+    remodelers = check_selected_regulators(remodeler_strength)
+    regulators = intersect(regulators,remodelers)
     expressed = quantile(regulators, percentile)
     expressed_regs = rand(regulators[regulators .< expressed], 1)
     repressed = quantile(regulators, 1 - percentile)
     repressed_regs = rand(regulators[regulators .> repressed], n_regulators - 1)
+    saturation_rates = quantile(1:gene_state.n_genes, percentile)
+    saturation_rates = rand(1:round(saturation_rates),n_regulators)
     #-------------------------------------------------------------------------#
     # Function tp shift indices to make a circular repressilator of 
     # arbitrary size - sign just add a negavtive sign for "repression"
@@ -43,7 +45,8 @@ function repressilator(
     #-------------------------------------------------------------------------#
     gene_state.leak_rate[all_regulators] .= leak_rate
     gene_state.regulator_strength[all_regulators] .= reg_strengths
-    gene_state.remodeller_strength[all_regulators] .= remod_strength
+    gene_state.remodeler_strength[all_regulators] .= remod_strength
+    gene_state.saturation_rank[all_regulators] .= saturation_rates
     #-------------------------------------------------------------------------#
     # For the repressillator there is no need to have any other output
     # Except for TF binding since they bind and inhibit expression.
@@ -55,7 +58,7 @@ function repressilator(
         regulators = all_regulators,
         strength_range = (0.99,1.0),
         regulator_strength = reg_strengths,
-        remodeller_strenght = remod_strength,
+        remodeler_strength = remod_strength,
         messaging_output = nothing,
         metabolic_output = nothing,
         chromatin_remodelling = all_regulators,
@@ -151,11 +154,11 @@ function add_grns(sample::SampleState,
     #-------------------------------------------------------------------------#
     gene_state = sample.gene_state
     regulator_strength = sample.gene_state.regulator_strength
-    remodeller_strenght = sample.gene_state.remodeller_strenght
+    remodeler_strength = sample.gene_state.remodeler_strength
     for g in eachindex(grns)
         grn,gene_state = repressilator(
             regulator_strength,
-            remodeller_strenght,
+            remodeler_strength,
             gene_state)
         grn_set[grns[g]] = grn
     end
@@ -200,14 +203,18 @@ function add_grns!(sample::SampleState,
     # we can add overlaps and the strength will determine how strongly
     # the regulator will resist change
     #-------------------------------------------------------------------------#
-
     gene_state = sample.gene_state
     regulator_strength = sample.gene_state.regulator_strength
+    remodeler_strength = sample.gene_state.remodeler_strength
     for g in eachindex(grns)
-        grn,gene_state = repressilator(regulator_strength, gene_state)
+        grn,gene_state = repressilator(
+            regulator_strength,
+            remodeler_strength,
+            gene_state)
         grn_set[grns[g]] = grn
     end
     sample.grn_set = grn_set
     sample.gene_state = gene_state
+    
     return sample
 end

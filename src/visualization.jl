@@ -69,14 +69,9 @@ function view_gene_cycle(
         gene_vec = Vector{Vector{Float64}}(undef, length(gene_shift))
         min_y = 2000 # Use a starting value with maximum potential rnak shift
         max_y = 0.0
-        n_cells = size(gene_shift[1],1)
-        n_cycles = size(gene_shift[1],2)
         for (i, g) in enumerate(gene_shift)
-            d = zeros(Float64, n_cells, n_cycles)
-            for t in 2:n_cycles
-                @views d[:, t] .= g[:, t] .- g[:, t-1]
-            end
-            diff_mat = g .- d
+            norm_val = mode(Matrix(g))
+            diff_mat = round.(((Matrix(g) ./ norm_val ) .- 1) .* norm_val)
             nz = [sum(x) for x in eachrow(diff_mat)]
             nz = findall(x -> x !=0, nz)
             mean_shift = [mean(x) for x in eachcol(diff_mat)]
@@ -86,7 +81,7 @@ function view_gene_cycle(
             
         end
 
-        P = plot(ylims=(min_y, max_y), xlabel="Cycle", ylabel="Mean Rank Change", title="Gene Rank Shifts")
+        P = plot(ylims=(min_y, max_y), xlabel="Cycle", ylabel="Mean Rank Change", title="Gene Rank Shifts",legend = :outertopright)
         for (p, g) in enumerate(gene_vec)
             x = 1:length(g)
             plot!(P, x, g, label="Gene $p")
@@ -106,8 +101,9 @@ function view_gene_cycle(
 
         plot_array = Vector{Any}()
         for (p, g) in enumerate(gene_shift)
-            numeric_cols = names(g, Number)
-            local_plot = heatmap(Matrix(g[:, numeric_cols]),
+            norm_val = mode(Matrix(g))
+            diff_mat = round.(((Matrix(g) ./ norm_val ) .- 1) .* norm_val)
+            local_plot = heatmap(diff_mat,
                                  title="Gene $p", colorbar=true)
             push!(plot_array, local_plot)
         end
@@ -147,7 +143,9 @@ function view_tissue_cycle(
         diff_mats = Vector{Matrix{Float64}}(undef, n_genes)
         global_max = 0.0
         for g in 1:n_genes
-            diff_mat = delta_shift(gene_pull[g])
+            norm_val = mode(Matrix(gene_pull[g]))
+            diff_mat = round.(((Matrix(gene_pull[g]) ./ norm_val ) .- 1) .* norm_val)
+           #diff_mat = delta_shift(gene_pull[g])
             diff_mats[g] = diff_mat
             m = maximum(abs, diff_mat)
             if isfinite(m) && m > global_max
