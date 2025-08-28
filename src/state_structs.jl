@@ -20,6 +20,7 @@ Base.@kwdef mutable struct GeneState
     decay_rate::Vector{Int64}
     translation_efficiency::Vector{Float64}
     regulator_strength::Vector{Float64}
+    remodeller_strength::Vector{Float64}
 end
 function Base.show(io::IO, ::MIME"text/plain", x::GeneState)
     println(io, "GeneState Struct")
@@ -86,6 +87,7 @@ Base.@kwdef struct GRN
     regulators::Vector{Int64} # What genes are involved?
     strength_range::Tuple{Float64,Float64} = (0.5,1.0)
     regulator_strength::Vector{Float64} # How strongly are they "on" - master regulator always 1
+    remodeller_strenght::Vector{Float64} # How strongly do they modify chromatin
     messaging_output::Union{Nothing,Vector{Int64}} = nothing# Messages that will be diffused out
     metabolic_output::Union{Nothing,Vector{Int64}} = nothing# Catch all for everything else
     chromatin_remodelling::Union{Nothing,Vector{Int64}} = nothing # If they remodel chromatin - where do they do that?

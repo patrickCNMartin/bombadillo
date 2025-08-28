@@ -88,7 +88,12 @@ function initialize_state(grn_set::Dict{String, Bombadillo.GRN},
     state = Dict{Int64, Float64}()
     for (_, grn) in grn_set
         reg = grn.regulators
-        str = grn.regulator_strength
+        if field == :chromatin_state
+            str = grn.remodeller_strenght
+        else
+            str = grn.regulator_strength
+        end
+        
         effect_strength = grn.strength_range
         layer = getfield(grn, field)
         # Don't initalize what is not present
@@ -98,6 +103,8 @@ function initialize_state(grn_set::Dict{String, Bombadillo.GRN},
         end
         for pr in eachindex(layer)
             loc_key = abs(layer[pr])
+            # Not sure if overwiting with stronger one is the way to go
+            # maybe be mean strenght? 
             if haskey(state,loc_key) && loc_key ∉ reg
                 st =  rand(Uniform(effect_strength[1],effect_strength[2]))
                 if state[loc_key] < st

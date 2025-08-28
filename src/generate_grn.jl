@@ -1,28 +1,49 @@
-
+using Statistics
 function repressilator(
     regulator_strength::Vector{Float64},
+    remodeller_strenght::Vector{Float64},
     gene_state::GeneState;
-    n_regulators::Int64 = 3)::Tuple{GRN,GeneState}
+    n_regulators::Int64 = 3,
+    percentile::Float64 = 0.1,
+    leak_rate::Int64 = 150)::Tuple{GRN,GeneState}
     #-------------------------------------------------------------------------#
-    # This function selects genes to use in the repressilator
-    # We can define overlaps with other genes 
-    # And how strong they are "on"
-    # Return Vector{Int64} and Vector{Float64}
-    # Hardcoded values for now just to test it
-    # I think I would need a GRN designed model
+    # Select some regulators 
+    # One thing that is required is that we cannot randomly select 
+    # Only one has to be on. The other turns off. The bahaviors needs to be 
+    # forced. Always start with a single repressor on
+    # Will need to throw in some check here later
+    # Will do when we create the GRN creator tool kit
     #-------------------------------------------------------------------------#
-    regulators, strengths = compute_grn_overlaps(
-        regulator_strength,
-        overlap_range = (0.0,0.0),
-        strength_range = (0.99,1.0),
-        g = n_regulators)
-    gene_state.leak_rate[regulators] .= 200
+    regulators = check_selected_regulators(regulator_strength)
+    remodellers = check_selected_regulators(remodeller_strenght)
+    regulators = intersect(regelators,remodellers)
+    expressed = quantile(regulators, percentile)
+    expressed_regs = rand(regulators[regulators .< expressed], 1)
+    repressed = quantile(regulators, 1 - percentile)
+    repressed_regs = rand(regulators[regulators .> repressed], n_regulators - 1)
     #-------------------------------------------------------------------------#
     # Function tp shift indices to make a circular repressilator of 
     # arbitrary size - sign just add a negavtive sign for "repression"
     # Returns Matrix{Int64}
+    # Multiply by -1 to define that there is a repressive relationship
     #-------------------------------------------------------------------------#
-    reg_rel = cyclic_permuations(regulators, sign = true)
+    all_regulators = vcat(expressed_regs, repressed_regs)
+    reg_rel = cyclic_permuations(all_regulators)
+    reg_rel = reg_rel .* (-1)
+    #-------------------------------------------------------------------------#
+    # Define strength of regulators
+    # Repressed ones are low
+    # With negative strenghts to indicate repression
+    # this could be redundant.
+    #-------------------------------------------------------------------------#
+    reg_strengths = (-1) * vcat(1, rand(Uniform(0.0,percentile),n_regulators - 1))
+    remod_strength = repeat([1.0],n_regulators)
+    #-------------------------------------------------------------------------#
+    # Update gene state 
+    #-------------------------------------------------------------------------#
+    gene_state.leak_rate[all_regulators] .= leak_rate
+    gene_state.regulator_strength[all_regulators] .= reg_strengths
+    gene_state.remodeller_strength[all_regulators] .= remod_strength
     #-------------------------------------------------------------------------#
     # For the repressillator there is no need to have any other output
     # Except for TF binding since they bind and inhibit expression.
@@ -31,28 +52,23 @@ function repressilator(
     # elsewhere. This just serves a behavior template
     #-------------------------------------------------------------------------#
     grn = GRN(regulatory_rel = reg_rel,
-        regulators = regulators,
+        regulators = all_regulators,
         strength_range = (0.99,1.0),
-        regulator_strength = (-1) * strengths,
+        regulator_strength = reg_strengths,
+        remodeller_strenght = remod_strength,
         messaging_output = nothing,
         metabolic_output = nothing,
-        chromatin_remodelling = regulators,
-        tf_binding = (-1) * regulators)
+        chromatin_remodelling = all_regulators,
+        tf_binding = (-1) * all_regulators)
     return grn, gene_state
 end
 
-# function template_grn(regulator_strength::Vector{Float64};
-#     n_regulators::Int64 = 1,
-#     cellular_output::Int64 = 0,
-#     metabolic_output::Int64 = 10,
-#     chromatin_remodelling::Int64 = 0,
-#     tf_binding::Int64 = 0,
-#     overlap_range::Vector{Float64} = [0.0,0.0],
-#     )::GRN
-#     return 0
-# end
+function check_selected_regulators(
+    regulator_strength::Vector{Float64})::Vector{Int64}
+    return findall(x -> x == 0, regulator_strength)
+end
 
-
+## Not a great function either too complicated or too simple
 function compute_grn_overlaps(
     regulator_strength::Vector{Float64};
     overlap_range::Tuple{Float64,Float64} = (0.0,0.0),
@@ -135,8 +151,12 @@ function add_grns(sample::SampleState,
     #-------------------------------------------------------------------------#
     gene_state = sample.gene_state
     regulator_strength = sample.gene_state.regulator_strength
+    remodeller_strenght = sample.gene_state.remodeller_strenght
     for g in eachindex(grns)
-        grn,gene_state = repressilator(regulator_strength, gene_state)
+        grn,gene_state = repressilator(
+            regulator_strength,
+            remodeller_strenght,
+            gene_state)
         grn_set[grns[g]] = grn
     end
     sample.grn_set = grn_set

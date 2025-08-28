@@ -43,11 +43,8 @@ function wave_decay(
 end
 
 
-function cyclic_permuations(regulators::Vector{Int64}; sign::Bool = true)::Matrix{Int64}
+function cyclic_permuations(regulators::Vector{Int64})::Matrix{Int64}
     reg_seq = collect(regulators)
-    if sign
-        reg_seq .= reg_seq * (-1)
-    end
     return hcat([circshift(reg_seq, k) for k in 0:2]...)
 end
 
