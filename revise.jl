@@ -20,7 +20,7 @@ gene_set = sample.grn_set["domain_5"].regulators
 gene_set = string.("gene_",gene_set)
 
 sample, pull = let_live(sample,50, gene_set, pull_layer=:rna_state)
-# view_gene_cycle(sample, pull, merge_cells = true)
+view_gene_cycle(sample, pull, merge_cells = true)
 
 view_tissue_cycle(sample, [pull[1]],"test.gif",dim = 2)
 
