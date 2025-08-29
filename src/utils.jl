@@ -119,7 +119,7 @@ end
 
 function logistic_sampling(
     range::Tuple{Float64,Float64},
-    s::Float64 = 10.0)
+    s::Float64 = 5.0)
     # Parameters
     a, b = range
     μ = b
@@ -127,6 +127,15 @@ function logistic_sampling(
     dist = Truncated(Logistic(μ, s), a, b)
     sample = rand(dist)
     return sample
+end
+
+function ranks_from_p(p::AbstractVector{<:Real})
+    ord = sortperm(p; rev=true)        # order of indices, from largest to smallest p
+    r = zeros(Int, length(p))          # allocate a vector of ranks
+    @inbounds for i in 1:length(p)
+        r[ord[i]] = i                  # assign rank i to the gene at position ord[i]
+    end
+    return r
 end
 #-----------------------------------------------------------------------------#
 # Struct manipulation functions

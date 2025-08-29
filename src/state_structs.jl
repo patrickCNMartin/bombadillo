@@ -1,7 +1,7 @@
 #-----------------------------------------------------------------------------#
 # Define const
 #-----------------------------------------------------------------------------#
-const temporal_state = [1,2,3,4,5,6]
+const temporal_state = [1,2,3,4,5]
 #-----------------------------------------------------------------------------#
 # depends
 #-----------------------------------------------------------------------------#
@@ -15,9 +15,9 @@ using Printf
 Base.@kwdef mutable struct GeneState
     n_genes::Int64 = 2000
     genes::Union{Vector{Int64}, Vector{String}}
-    saturation_rank::Vector{Int64}
-    leak_rate::Vector{Int64} # if 0 then no change in baseline rank if more then it will go up till saturation of not repressed
-    decay_rate::Vector{Int64}
+    saturation::Vector{Float64}
+    leak_rate::Vector{Float64} # if 0 then no change in baseline rank if more then it will go up till saturation of not repressed
+    decay_rate::Vector{Float64}
     translation_efficiency::Vector{Float64}
     regulator_strength::Vector{Float64}
     remodeler_strength::Vector{Float64}
@@ -173,8 +173,8 @@ Base.@kwdef mutable struct CellState
     coordinates::Tuple{Float64,Float64,Float64}
     chromatin_state::Union{SparseVector,Nothing} = nothing
     binding_state::Union{SparseVector,Nothing} = nothing
-    rna_state::Union{Vector{Int64}, Nothing} = nothing
-    protein_state::Union{Vector{Int64}, Nothing} = nothing
+    rna_state::Union{Vector{Float64}, Nothing} = nothing
+    protein_state::Union{Vector{Float64}, Nothing} = nothing
     metabolome_state::Union{SparseVector,Nothing} = nothing
     messaging_state::Union{SparseVector,Nothing} = nothing
 end

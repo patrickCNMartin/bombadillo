@@ -17,6 +17,7 @@ function let_live(
     
     for cycle in 1:cycles
         cycle_sample!(sample, cycle)
+        println(string("Cycle:",cycle))
         if gene_cycle !== nothing
             gene_pull!(gene_cycle, sample_genes, sample, cycle, pull_layer)
         end
@@ -139,78 +140,122 @@ function initialize_state(grn_set::Dict{String, Bombadillo.GRN},
 end
 
 
-function cycle_chromatin!(cell::CellState, gene_state::GeneState)::CellState
+function cycle_chromatin_binding!(cell::CellState, gene_state::GeneState)::CellState
     cell.cycle_position = circshift(temporal_state, (-1) * cell.cycle_position)[1]
-    # what is the probablity of getting a state change
     chromatin_state = cell.chromatin_state
     tf_binding = cell.binding_state
     idx, val = findnz(chromatin_state)
     for (i, v) in zip(idx,val)
-        binding_prob = abs(v) * abs(tf_binding[i]) * sign(tf_binding[i]) 
+        if v < 0
+            # aribtrary low noise - the idea is that if chromatin state is
+            # below zero there is no binding. A pioneer or and TF
+            # capable of opening chromatin or binding to closed chromatin
+            # will push it towards positive values. 
+            binding_prob = 0.05 * sign(tf_binding[i]) 
+        else
+            binding_prob = abs(v) * abs(tf_binding[i]) * sign(tf_binding[i])
+            #binding_prob = mean([abs(v) ,abs(tf_binding[i])]) * sign(tf_binding[i]) 
+        end
         tf_binding[i] = binding_prob
-    end
-    cell.tf_binding = tf_binding
-    return cell
-end
-
-function cycle_binding!(cell::CellState, gene_state::GeneState)::CellState
-    cell.cycle_position = circshift(temporal_state, (-1) * cell.cycle_position)[1]
-    tf_binding = cell.binding_state
-    idx , val = findnz(tf_binding)
-    for (i, v) in zip(idx, val)
-        cs_prob = chromatin_state[i]
-        tf_prob = abs(v) # we use abs since the signs only define if the gene is repressed or activated
-        prob = (cs_prob + tf_prob) / 2  
-        tf_binding[i] = sign(v) * prob
     end
     cell.binding_state = tf_binding
     return cell
 end
+
+# function cycle_binding!(cell::CellState, gene_state::GeneState)::CellState
+#     cell.cycle_position = circshift(temporal_state, (-1) * cell.cycle_position)[1]
+#     tf_binding = cell.binding_state
+#     idx , val = findnz(tf_binding)
+#     for (i, v) in zip(idx, val)
+#         cs_prob = chromatin_state[i]
+#         tf_prob = abs(v) # we use abs since the signs only define if the gene is repressed or activated
+#         prob = (cs_prob + tf_prob) / 2  
+#         tf_binding[i] = sign(v) * prob
+#     end
+#     cell.binding_state = tf_binding
+#     return cell
+# end
+
+
+
+# function cycle_rna!(cell::CellState, gene_state::GeneState)::CellState
+#     n_genes = gene_state.n_genes
+
+#     # Initialize latent positions if not present
+#     if !haskey(cell, :latent) || length(cell.latent) != n_genes
+#         # Higher latent value -> better rank
+#         cell.latent = Float64.(n_genes .- cell.rna_state) .+ 1e-6 .* (rand(n_genes) .- 0.5)
+#     end
+
+#     # Compute net TF effect for each gene
+#     # tf_matrix[i,j] = effect of gene j on gene i (+ activation, - repression)
+#     net_effect = sum(gene_state.tf_matrix; dims=2)
+#     net_effect = vec(net_effect)  # convert to 1D vector
+
+#     # Update latent positions
+#     for i in 1:n_genes
+#         # latent change = net TF effect - decay + tiny noise
+#         decay = gene_state.decay_rate[i]
+#         cell.latent[i] += net_effect[i] - decay + 1e-6*(rand() - 0.5)
+#         # enforce floor at saturation rank
+#         min_latent = n_genes - gene_state.saturation_rank[i]
+#         if cell.latent[i] < min_latent
+#             cell.latent[i] = min_latent
+#         end
+#     end
+
+#     # Convert latent positions -> ranks
+#     ord = sortperm(cell.latent; rev=true)  # higher latent -> lower rank number
+#     for (rank, idx) in enumerate(ord)
+#         cell.rna_state[idx] = rank
+#     end
+ 
+#     return cell
+# end
+
+
+using Random, Distributions
 function cycle_rna!(cell::CellState, gene_state::GeneState)::CellState
+    # advance cell cycle position
     cell.cycle_position = circshift(temporal_state, (-1) * cell.cycle_position)[1]
-    rna = cell.rna_state
-    saturation = gene_state.saturation_rank
-    leak_rate = gene_state.leak_rate
-    decay_rate = gene_state.decay_rate
-    tf_binding = cell.binding_state
-    n_genes = gene_state.n_genes
+
+    # pull data
+    expr = cell.rna_state                       # now floats
+    leak_rate = gene_state.leak_rate            # float, positive -> increase expression
+    decay_rate = gene_state.decay_rate          # float, positive -> decrease expression
+    tf_binding = cell.binding_state             # values between -1 and 1
+    saturation = gene_state.saturation  # optional max expression
+
+    # only consider nonzero TF bindings
     idx, val = findnz(tf_binding)
-    transcribe = [true, false]
-    for (i, v) in zip(idx, val)
-        # dirty trick if it comes at 0 just add one rank
-        shift_max = abs(saturation[i] - rna[i]) + 1
-        # I don't think random shift is the way to go here
-        # the other issue is that this will make It
-        # harder when adding decaying shifts
-        # Will need to rework that 
-        # TODO rework this while section 
-        # TODO. add seperate functions for shifting
-        # I think using (-) signs here makes more sense
-        # It's more intuitive to think of decay as going down
-        # even though it terms of rank index that means going up
-        shift = -(sign(v) * round(logistic_sampling((0.0,Float64(shift_max))))) -
-            leak_rate[i] -
-            decay_rate[i]
-        #shift =  -(sign(v) * shift_max) - leak_rate[i] - decay_rate[i]
-        shift_prob = [abs(v), 1 - abs(v)] 
+    transcribe_options = [true, false]
+
+    @inbounds for (i, v) in zip(idx, val)
+        # probabilistic transcription based on TF strength
+        shift_prob = [abs(v), 1 - abs(v)]
         shift_dist = Categorical(shift_prob)
-        bound_site = transcribe[rand(shift_dist)]
+        bound_site = transcribe_options[rand(shift_dist)]
+
         if bound_site
-            rank = rna[i] - shift
-            if 1 <= rank <= n_genes
-                rank = maximum([saturation[i], rank])
-            elseif rank < 1
-                rank = 1
-            else
-                rank = n_genes
+            # compute net change
+            delta = 0.05 *(leak_rate[i] - decay_rate[i] +v)+ 1e-6*(rand() - 0.5)
+            expr[i] += delta
+
+            # optional saturation cap
+            if saturation !== nothing
+                expr[i] = min(expr[i], saturation[i])
             end
-            rna[i] = rank
+
+            # ensure expression >= 0
+            expr[i] = max(expr[i], 0.0)
         end
-        
     end
-    cell.rna_state = rna
+
+    cell.rna_state = expr
     return cell
 end
+
+
 function cycle_protein!(cell::CellState,
     gene_state::GeneState)::CellState
     cell.cycle_position = circshift(temporal_state, (-1) * cell.cycle_position)[1]
@@ -245,7 +290,7 @@ function cycle_regulation!(cell::CellState,
     # more complex GRNs and GRN shifts
     info = [cell.cell_info.celltype,cell.cell_info.domain]
     grn_local = Dict(k => grn_set[k] for k in info if haskey(grn_set,k))
-    saturation = gene_state.saturation_rank
+    saturation = gene_state.saturation
     n_genes = gene_state.n_genes
     protein = cell.protein_state
     for (_,g) in grn_local
@@ -274,8 +319,8 @@ end
 
 function update_regulation!(cell::CellState,
     grn::GRN,
-    protein::Vector{Int64},
-    saturation::Vector{Int64},
+    protein::Vector{Float64},
+    saturation::Vector{Float64},
     n_genes::Int64;
     grn_layer::Symbol = :tf_binding,
     cell_layer::Symbol = :binding_state)::CellState
@@ -296,8 +341,6 @@ function update_regulation!(cell::CellState,
         if sat > 1.0 || sat < -1
                 sat = 1.0
         elseif sat == 0.0
-            # just add some noise here to avoid 0 sampling
-            # Arbitratry but small chance of having spontanous activation
             sat = 0.05
         end
         prob = logistic_sampling((0.0, abs(sat)))
@@ -309,12 +352,11 @@ end
 
 
 const cycle_cell = Dict{Int, Function}(
-    1 => cycle_chromatin!,
-    2 => cycle_binding!,
-    3 => cycle_rna!,
-    4 => cycle_protein!,
-    5 => cycle_messaging!,
-    6 => cycle_metabolome!)
+    1 => cycle_chromatin_binding!,
+    2 => cycle_rna!,
+    3 => cycle_protein!,
+    4 => cycle_messaging!,
+    5 => cycle_metabolome!)
 
 function cycle_sample!(sample::SampleState, cycle::Int)::SampleState
     cells = sample.cells
@@ -337,7 +379,8 @@ function gene_pull!(
     genes::Union{String,Vector{String}},
     sample::SampleState,
     cycle::Int,
-    pull_layer::Symbol)::Vector{DataFrame}
+    pull_layer::Symbol,
+    as_rank::Bool = true)::Vector{DataFrame}
 
     gene_index = findall(g -> g ∈ genes, sample.gene_state.genes)
     cells = sample.cells
@@ -346,7 +389,7 @@ function gene_pull!(
         
         state = similar(cells, Float64)
         @inbounds @simd for j in eachindex(cells)
-            state[j] = pull_state(cells[j], pull_layer, gidx)
+            state[j] = pull_state(cells[j], pull_layer, gidx, as_rank)
         end
         @views gene_cycle[i][!, cycle] .= state
     end
@@ -355,6 +398,15 @@ function gene_pull!(
 end
 
 
-function pull_state(cell::CellState, layer::Symbol, index::Int)
-    return getfield(cell,layer)[index]
+function pull_state(
+    cell::CellState,
+    layer::Symbol,
+    index::Int,
+    as_rank::Bool = true)
+    if as_rank
+        state = ranks_from_p(getfield(cell,layer))
+        return state[index]
+    else 
+        return getfield(cell,layer)[index]
+    end
 end

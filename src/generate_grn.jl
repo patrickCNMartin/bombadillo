@@ -4,8 +4,7 @@ function repressilator(
     remodeler_strength::Vector{Float64},
     gene_state::GeneState;
     n_regulators::Int64 = 3,
-    percentile::Float64 = 0.1,
-    leak_rate::Int64 = 150)::Tuple{GRN,GeneState}
+    percentile::Float64 = 0.1)::Tuple{GRN,GeneState}
     #-------------------------------------------------------------------------#
     # Select some regulators 
     # One thing that is required is that we cannot randomly select 
@@ -17,19 +16,20 @@ function repressilator(
     regulators = check_selected_regulators(regulator_strength)
     remodelers = check_selected_regulators(remodeler_strength)
     regulators = intersect(regulators,remodelers)
-    expressed = quantile(regulators, percentile)
-    expressed_regs = rand(regulators[regulators .< expressed], 1)
-    repressed = quantile(regulators, 1 - percentile)
-    repressed_regs = rand(regulators[regulators .> repressed], n_regulators - 1)
-    saturation_rates = quantile(1:gene_state.n_genes, percentile)
-    saturation_rates = rand(1:round(saturation_rates),n_regulators)
+    # expressed = quantile(regulators, percentile)
+    # expressed_regs = rand(regulators[regulators .< expressed], 1)
+    # repressed = quantile(regulators, 1 - percentile)
+    # repressed_regs = rand(regulators[regulators .> repressed], n_regulators - 1)
+    local_reg = regulators[(regulators .> n_regulators) .& (regulators .< gene_state.n_genes)]
+    loc = rand(local_reg)
+    all_regulators = local_reg[loc:(loc + (n_regulators - 1))]
     #-------------------------------------------------------------------------#
     # Function tp shift indices to make a circular repressilator of 
     # arbitrary size - sign just add a negavtive sign for "repression"
     # Returns Matrix{Int64}
     # Multiply by -1 to define that there is a repressive relationship
     #-------------------------------------------------------------------------#
-    all_regulators = vcat(expressed_regs, repressed_regs)
+    #all_regulators = vcat(expressed_regs, repressed_regs)
     reg_rel = cyclic_permuations(all_regulators)
     reg_rel = reg_rel .* (-1)
     #-------------------------------------------------------------------------#
@@ -38,15 +38,14 @@ function repressilator(
     # With negative strenghts to indicate repression
     # this could be redundant.
     #-------------------------------------------------------------------------#
-    reg_strengths = (-1) * vcat(1, rand(Uniform(0.0,percentile),n_regulators - 1))
+    #reg_strengths = (-1) .* vcat(1, rand(Uniform(0.0,percentile),n_regulators - 1))
+    reg_strengths = repeat([-1.0],n_regulators)
     remod_strength = repeat([1.0],n_regulators)
     #-------------------------------------------------------------------------#
     # Update gene state 
     #-------------------------------------------------------------------------#
-    gene_state.leak_rate[all_regulators] .= leak_rate
-    gene_state.regulator_strength[all_regulators] .= reg_strengths
+    gene_state.regulator_strength[all_regulators] .= reverse(reg_strengths)
     gene_state.remodeler_strength[all_regulators] .= remod_strength
-    gene_state.saturation_rank[all_regulators] .= saturation_rates
     #-------------------------------------------------------------------------#
     # For the repressillator there is no need to have any other output
     # Except for TF binding since they bind and inhibit expression.
@@ -57,7 +56,7 @@ function repressilator(
     grn = GRN(regulatory_rel = reg_rel,
         regulators = all_regulators,
         strength_range = (0.99,1.0),
-        regulator_strength = reg_strengths,
+        regulator_strength = reverse(reg_strengths),
         remodeler_strength = remod_strength,
         messaging_output = nothing,
         metabolic_output = nothing,

@@ -168,8 +168,8 @@ end
 
 
 function initialize_rank(n_genes)
-    # for now we will keep this simple and not use sparse arrays
-    return 1:n_genes
+    rank = 1:n_genes
+    return Float64.(n_genes .- rank) .+ 1e-6 .* (rand(n_genes) .- 0.5)
 end
 
 

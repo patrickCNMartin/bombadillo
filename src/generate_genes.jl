@@ -2,25 +2,27 @@
 # New gene state - Pute simulated for now.
 # we will change it later to create "synthetic data"
 #-----------------------------------------------------------------------------#
+using StatsBase
 function initialize_genes(
     n_genes::Int64 = 2000;
-    max_leak::Int64 = 10,
-    max_decay::Int64 = 100,
-    translation_efficiency::Vector{Float64} = [0.5, 1.0])::GeneState
+    leak_range::Tuple{Float64,Float64} = (0.0,1.0),
+    decay_range::Tuple{Float64,Float64} = (0.0,1.0),
+    saturation::Float64 = 0.1,
+    translation_efficiency::Vector{Float64} = [0.8, 1.0])::GeneState
     #-------------------------------------------------------------------------#
     # build initial gene set
     #-------------------------------------------------------------------------#
     genes = string.("gene_",1:n_genes)
     regulator_strength = zeros(Float64, n_genes)
     remodeler_strength = zeros(Float64, n_genes)
-    saturation_rank = n_genes .- rand((n_genes / 2):n_genes, n_genes)
-    leak_rate = rand(0:max_leak,n_genes)
-    decay_rate = rand(max_leak:max_decay,n_genes) .* (-1)
+    leak_rate = rand(Uniform(leak_range[1],leak_range[2]),n_genes)
+    decay_rate = rand(Uniform(decay_range[1],decay_range[2]),n_genes)
+    saturation = fill(saturation * n_genes, n_genes)
     translation_efficiency = rand(
         Uniform(translation_efficiency[1],translation_efficiency[2]), n_genes)
     gene_state = GeneState(n_genes = n_genes,
         genes = genes,
-        saturation_rank = saturation_rank,
+        saturation = saturation,
         leak_rate = leak_rate,
         decay_rate = decay_rate,
         translation_efficiency = translation_efficiency,
@@ -92,9 +94,8 @@ function add_counts(
     # Now we sample and put into the matrix
     #-------------------------------------------------------------------------#
     for cell in eachindex(cells)
-        local_noise = rand.(Uniform(0.975, 1.025), n_genes)
-        state = Int.(getfield(cells[cell],layer))
-        noisy_profile = reverse(round.(Int, gene_sample .* local_noise))
+        state = ranks_from_p(getfield(cells[cell],layer))
+        noisy_profile = reverse(gene_sample)
         count_matrix[:,cell] = noisy_profile[state]
     end
    

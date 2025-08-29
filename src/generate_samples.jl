@@ -12,8 +12,9 @@ function initialize_sample(
     density_damp::Float64 = 0.1,
     diffusion_damp::Float64 = 0.3,
     static::Bool = true,
-    max_leak::Int64 = 10,
-    max_decay::Int64 = 100,
+    leak_range::Tuple{Float64,Float64} = (1.0,10.0),
+    decay_range::Tuple{Float64,Float64} = (1.0,100.0),
+    saturation::Float64 = 0.1,
     translation_efficiency::Vector{Float64} = [0.5, 1.0])::SampleState
     #-------------------------------------------------------------------------#
     # Intialize tissue
@@ -38,8 +39,9 @@ function initialize_sample(
     #-------------------------------------------------------------------------#
     genes = initialize_genes(
         n_genes,
-        max_leak = max_leak,
-        max_decay = max_decay,
+        leak_range = leak_range,
+        decay_range = decay_range,
+        saturation = saturation,
         translation_efficiency = translation_efficiency)
     #-------------------------------------------------------------------------#
     # not much to do now but it will be useful later when we star moving to
