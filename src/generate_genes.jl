@@ -5,8 +5,8 @@
 using StatsBase
 function initialize_genes(
     n_genes::Int64 = 2000;
-    leak_range::Tuple{Float64,Float64} = (0.0,1.0),
-    decay_range::Tuple{Float64,Float64} = (0.0,1.0),
+    leak_range::Tuple{Float64,Float64} = (0.0,20.0),
+    decay_range::Tuple{Float64,Float64} = (0.5,0.8),
     saturation::Float64 = 0.1,
     translation_efficiency::Vector{Float64} = [0.8, 1.0])::GeneState
     #-------------------------------------------------------------------------#
@@ -17,7 +17,7 @@ function initialize_genes(
     remodeler_strength = zeros(Float64, n_genes)
     leak_rate = rand(Uniform(leak_range[1],leak_range[2]),n_genes)
     decay_rate = rand(Uniform(decay_range[1],decay_range[2]),n_genes)
-    saturation = fill(saturation * n_genes, n_genes)
+    saturation = rand(Uniform(1,n_genes * saturation),n_genes)
     translation_efficiency = rand(
         Uniform(translation_efficiency[1],translation_efficiency[2]), n_genes)
     gene_state = GeneState(n_genes = n_genes,

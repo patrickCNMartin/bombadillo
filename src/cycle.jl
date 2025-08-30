@@ -162,56 +162,6 @@ function cycle_chromatin_binding!(cell::CellState, gene_state::GeneState)::CellS
     return cell
 end
 
-# function cycle_binding!(cell::CellState, gene_state::GeneState)::CellState
-#     cell.cycle_position = circshift(temporal_state, (-1) * cell.cycle_position)[1]
-#     tf_binding = cell.binding_state
-#     idx , val = findnz(tf_binding)
-#     for (i, v) in zip(idx, val)
-#         cs_prob = chromatin_state[i]
-#         tf_prob = abs(v) # we use abs since the signs only define if the gene is repressed or activated
-#         prob = (cs_prob + tf_prob) / 2  
-#         tf_binding[i] = sign(v) * prob
-#     end
-#     cell.binding_state = tf_binding
-#     return cell
-# end
-
-
-
-# function cycle_rna!(cell::CellState, gene_state::GeneState)::CellState
-#     n_genes = gene_state.n_genes
-
-#     # Initialize latent positions if not present
-#     if !haskey(cell, :latent) || length(cell.latent) != n_genes
-#         # Higher latent value -> better rank
-#         cell.latent = Float64.(n_genes .- cell.rna_state) .+ 1e-6 .* (rand(n_genes) .- 0.5)
-#     end
-
-#     # Compute net TF effect for each gene
-#     # tf_matrix[i,j] = effect of gene j on gene i (+ activation, - repression)
-#     net_effect = sum(gene_state.tf_matrix; dims=2)
-#     net_effect = vec(net_effect)  # convert to 1D vector
-
-#     # Update latent positions
-#     for i in 1:n_genes
-#         # latent change = net TF effect - decay + tiny noise
-#         decay = gene_state.decay_rate[i]
-#         cell.latent[i] += net_effect[i] - decay + 1e-6*(rand() - 0.5)
-#         # enforce floor at saturation rank
-#         min_latent = n_genes - gene_state.saturation_rank[i]
-#         if cell.latent[i] < min_latent
-#             cell.latent[i] = min_latent
-#         end
-#     end
-
-#     # Convert latent positions -> ranks
-#     ord = sortperm(cell.latent; rev=true)  # higher latent -> lower rank number
-#     for (rank, idx) in enumerate(ord)
-#         cell.rna_state[idx] = rank
-#     end
- 
-#     return cell
-# end
 
 
 using Random, Distributions
@@ -220,11 +170,12 @@ function cycle_rna!(cell::CellState, gene_state::GeneState)::CellState
     cell.cycle_position = circshift(temporal_state, (-1) * cell.cycle_position)[1]
 
     # pull data
-    expr = cell.rna_state                       # now floats
-    leak_rate = gene_state.leak_rate            # float, positive -> increase expression
-    decay_rate = gene_state.decay_rate          # float, positive -> decrease expression
-    tf_binding = cell.binding_state             # values between -1 and 1
-    saturation = gene_state.saturation  # optional max expression
+    expr = cell.rna_state                       
+    leak_rate = gene_state.leak_rate            
+    decay_rate = gene_state.decay_rate   
+    tf_binding = cell.binding_state 
+    n_genes = gene_state.n_genes          
+    saturation = gene_state.saturation  
 
     # only consider nonzero TF bindings
     idx, val = findnz(tf_binding)
@@ -235,20 +186,20 @@ function cycle_rna!(cell::CellState, gene_state::GeneState)::CellState
         shift_prob = [abs(v), 1 - abs(v)]
         shift_dist = Categorical(shift_prob)
         bound_site = transcribe_options[rand(shift_dist)]
-
+        local_decay = logistic_sampling((1.0, Float64(n_genes - saturation[i])),5.0) * decay_rate[i]
+        local_leak = logistic_sampling((1.0,Float64(leak_rate[i])), 10.0)
         if bound_site
-            # compute net change
-            delta = 0.05 *(leak_rate[i] - decay_rate[i] +v)+ 1e-6*(rand() - 0.5)
-            expr[i] += delta
-
-            # optional saturation cap
-            if saturation !== nothing
-                expr[i] = min(expr[i], saturation[i])
-            end
-
-            # ensure expression >= 0
-            expr[i] = max(expr[i], 0.0)
+            v_loc = logistic_sampling((1.0, Float64(n_genes - saturation[i])),10.0)
+            delta = -local_leak + local_decay - v_loc - 1e-6*(rand() - 0.5)
+        else
+            delta = -local_leak + local_decay - 1e-6*(rand() - 0.5)
         end
+        expr[i] += delta
+
+        if saturation !== nothing
+            expr[i] = min(expr[i], saturation[i])
+        end
+        expr[i] = max(expr[i], 0.0)
     end
 
     cell.rna_state = expr
