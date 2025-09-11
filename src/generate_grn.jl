@@ -17,9 +17,9 @@ function repressilator(
     remodelers = check_selected_regulators(remodeler_strength)
     regulators = intersect(regulators,remodelers)
     expressed = quantile(regulators, percentile)
-    expressed_regs = rand(regulators[regulators .< expressed], 1)
+    expressed_regs = rand(regulators[regulators .< expressed], n_regulators - 1)
     repressed = quantile(regulators, 1 - percentile)
-    repressed_regs = rand(regulators[regulators .> repressed], n_regulators - 1)
+    repressed_regs = rand(regulators[regulators .> repressed], 1)
     # local_reg = regulators[(regulators .> n_regulators) .& (regulators .< gene_state.n_genes)]
     # loc = rand(local_reg)
     # all_regulators = local_reg[loc:(loc + (n_regulators - 1))]
@@ -38,7 +38,7 @@ function repressilator(
     # With negative strenghts to indicate repression
     # this could be redundant.
     #-------------------------------------------------------------------------#
-    reg_strengths = (-1) .* vcat(1, rand(Uniform(0.0,percentile),n_regulators - 1))
+    reg_strengths = (-1) .* vcat(1,1, rand(Uniform(0.0,percentile),1))
     #reg_strengths = repeat([-1.0],n_regulators)
     remod_strength = repeat([1.0],n_regulators)
     #-------------------------------------------------------------------------#
