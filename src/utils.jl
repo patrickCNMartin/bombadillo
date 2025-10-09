@@ -129,6 +129,18 @@ function logistic_sampling(
     return sample
 end
 
+
+function hill_signed(x; K=0.5, n=2, maxval=1.0)
+    val = abs(x)
+    if x >= 0
+        # Activator: increases output with x
+        return maxval * (val^n) / (K^n + val^n)
+    else
+        # Repressor: decreases output with x
+        return maxval / (1 + (val / K)^n)
+    end
+end
+
 function ranks_from_p(p::AbstractVector{<:Real})
     ord = sortperm(p; rev=true)        # order of indices, from largest to smallest p
     r = zeros(Int, length(p))          # allocate a vector of ranks

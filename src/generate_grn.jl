@@ -20,9 +20,6 @@ function repressilator(
     expressed_regs = rand(regulators[regulators .< expressed], n_regulators - 1)
     repressed = quantile(regulators, 1 - percentile)
     repressed_regs = rand(regulators[regulators .> repressed], 1)
-    # local_reg = regulators[(regulators .> n_regulators) .& (regulators .< gene_state.n_genes)]
-    # loc = rand(local_reg)
-    # all_regulators = local_reg[loc:(loc + (n_regulators - 1))]
     #-------------------------------------------------------------------------#
     # Function tp shift indices to make a circular repressilator of 
     # arbitrary size - sign just add a negavtive sign for "repression"
@@ -39,13 +36,14 @@ function repressilator(
     # this could be redundant.
     #-------------------------------------------------------------------------#
     reg_strengths = (-1) .* vcat(1,1, rand(Uniform(0.0,percentile),1))
-    #reg_strengths = repeat([-1.0],n_regulators)
     remod_strength = repeat([1.0],n_regulators)
     #-------------------------------------------------------------------------#
     # Update gene state 
     #-------------------------------------------------------------------------#
     gene_state.regulator_strength[all_regulators] .= reverse(reg_strengths)
     gene_state.remodeler_strength[all_regulators] .= remod_strength
+    gene_state.leak_rate[all_regulators] .= rand(Uniform(0.1,0.25),length(all_regulators))
+    gene_state.decay_rate[all_regulators] .= rand(Uniform(0.1,0.25),length(all_regulators))
     #-------------------------------------------------------------------------#
     # For the repressillator there is no need to have any other output
     # Except for TF binding since they bind and inhibit expression.

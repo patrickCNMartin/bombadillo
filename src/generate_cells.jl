@@ -169,7 +169,8 @@ end
 
 function initialize_rank(n_genes)
     rank = 1:n_genes
-    return Float64.(n_genes .- rank) .+ 1e-6 .* (rand(n_genes) .- 0.5)
+    return rank
+    #return Float64.(n_genes .- rank) .+ 1e-6 .* (rand(n_genes) .- 0.5)
 end
 
 

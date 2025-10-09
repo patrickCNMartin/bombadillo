@@ -12,10 +12,10 @@ function initialize_sample(
     density_damp::Float64 = 0.1,
     diffusion_damp::Float64 = 0.3,
     static::Bool = true,
-    leak_range::Tuple{Float64,Float64} = (1.0,10.0),
-    decay_range::Tuple{Float64,Float64} = (1.0,100.0),
+    leak_range::Tuple{Float64,Float64} = (0.001,0.0025),
+    decay_range::Tuple{Float64,Float64} = (0.1,0.2),
     saturation::Float64 = 0.1,
-    translation_efficiency::Vector{Float64} = [0.5, 1.0])::SampleState
+    translation_efficiency::Vector{Float64} = [0.5, 0.99])::SampleState
     #-------------------------------------------------------------------------#
     # Intialize tissue
     #-------------------------------------------------------------------------#

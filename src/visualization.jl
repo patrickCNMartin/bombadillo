@@ -67,7 +67,7 @@ function view_gene_cycle(
     gene_shift = deepcopy(gene_pull)
     if merge_cells
         gene_vec = Vector{Vector{Float64}}(undef, length(gene_shift))
-        min_y = 2000 # Use a starting value with maximum potential rnak shift
+        min_y = 2000 # Use a starting value with maximum potential  shift
         max_y = 0.0
         for (i, g) in enumerate(gene_shift)
             norm_val = mode(Matrix(g))
@@ -77,10 +77,9 @@ function view_gene_cycle(
             mean_shift = [mean(x) for x in eachcol(diff_mat)]
             min_y = minimum([min_y, minimum(mean_shift[mean_shift .!= 0])])
             max_y = maximum([max_y, maximum(mean_shift[mean_shift .!= 0])])
-            gene_vec[i] = mean_shift
-            
+            gene_vec[i] = mean_shift[2:length(mean_shift)]
         end
-
+    
         P = plot(ylims=(min_y, max_y), xlabel="Cycle", ylabel="Mean Rank Change", title="Gene Rank Shifts",legend = :outertopright)
         for (p, g) in enumerate(gene_vec)
             x = 1:length(g)

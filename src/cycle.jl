@@ -146,16 +146,7 @@ function cycle_chromatin_binding!(cell::CellState, gene_state::GeneState)::CellS
     tf_binding = cell.binding_state
     idx, val = findnz(chromatin_state)
     for (i, v) in zip(idx,val)
-        if v < 0
-            # aribtrary low noise - the idea is that if chromatin state is
-            # below zero there is no binding. A pioneer or and TF
-            # capable of opening chromatin or binding to closed chromatin
-            # will push it towards positive values. 
-            binding_prob = 0.05 * sign(tf_binding[i]) 
-        else
-            binding_prob = abs(v) * abs(tf_binding[i]) * sign(tf_binding[i])
-            #binding_prob = mean([abs(v) ,abs(tf_binding[i])]) * sign(tf_binding[i]) 
-        end
+        binding_prob = mean([abs(v),abs(tf_binding[i])]) * sign(tf_binding[i]) 
         tf_binding[i] = binding_prob
     end
     cell.binding_state = tf_binding
@@ -187,19 +178,22 @@ function cycle_rna!(cell::CellState, gene_state::GeneState)::CellState
         shift_dist = Categorical(shift_prob)
         bound_site = transcribe_options[rand(shift_dist)]
         local_decay = logistic_sampling((1.0, Float64(n_genes - saturation[i])),5.0) * decay_rate[i]
-        local_leak = logistic_sampling((1.0,Float64(leak_rate[i])), 10.0)
+        local_decay = round(Int64, local_decay) + 1
+        local_leak = logistic_sampling((1.0,Float64(n_genes - saturation[i])), 10.0) * leak_rate[i]
+        local_leak = round(Int64, local_leak) + 1
         if bound_site
             v_loc = logistic_sampling((1.0, Float64(n_genes - saturation[i])),10.0)
-            delta = -local_leak + local_decay - v_loc - 1e-6*(rand() - 0.5)
+            v_loc = round(Int64,  v_loc)
+            delta = -local_leak + local_decay - v_loc 
         else
-            delta = -local_leak + local_decay - 1e-6*(rand() - 0.5)
+            delta = -local_leak + local_decay 
         end
         expr[i] += delta
 
         if saturation !== nothing
             expr[i] = min(expr[i], saturation[i])
         end
-        expr[i] = max(expr[i], 0.0)
+        expr[i] = max(expr[i], 0)
     end
 
     cell.rna_state = expr
@@ -214,9 +208,16 @@ function cycle_protein!(cell::CellState,
     rna = cell.rna_state
     decay_rate = gene_state.decay_rate
     translation_efficiency = gene_state.translation_efficiency
+    n_genes = gene_state.n_genes
     for p in eachindex(protein)
-        rank = round(Int,rna[p] * (1 / translation_efficiency[p])) - decay_rate[p]
-        protein[p] = rank
+        prot_shift = n_genes - rna[p]
+        decay_shift = round(Int64,prot_shift * decay_rate[p])
+        translation_shift = round(Int64,prot_shift * translation_efficiency[p])
+        protein_level = rna[p] + decay_shift + translation_shift
+        if protein_level > n_genes
+            protein_level = n_genes
+        end
+        protein[p] = protein_level
     end
     cell.protein_state = protein
     return cell
@@ -237,6 +238,7 @@ end
 function cycle_regulation!(cell::CellState,
     gene_state::GeneState,
     grn_set::Dict{String,GRN})::CellState
+    cell.cycle_position = circshift(temporal_state, (-1) * cell.cycle_position)[1]
     # This will need to be update - using a function once we have 
     # more complex GRNs and GRN shifts
     info = [cell.cell_info.celltype,cell.cell_info.domain]
@@ -270,8 +272,8 @@ end
 
 function update_regulation!(cell::CellState,
     grn::GRN,
-    protein::Vector{Float64},
-    saturation::Vector{Float64},
+    protein::Vector{Int64},
+    saturation::Vector{Int64},
     n_genes::Int64;
     grn_layer::Symbol = :tf_binding,
     cell_layer::Symbol = :binding_state)::CellState
@@ -279,23 +281,23 @@ function update_regulation!(cell::CellState,
     cell_state = getfield(cell, cell_layer)
     # pull GRN rels and subset 
     regulation = grn.regulatory_rel
-    reg_index = abs.(regulation[:,2]) .∈ abs.(grn_layer)
+    reg_index = indexin(abs.(regulation[:,2]),abs.(grn_layer))
     regulation = regulation[reg_index,:]
-
+    
     for reg in eachrow(regulation)
-        regulator = reg[2]
-        target = reg[3]
-        p_direction = sign(regulator)
+        regulator = abs(reg[2])
+        target = abs(reg[3])
+        p_direction = sign(reg[2])
         rank = protein[regulator]
         local_saturation = saturation[regulator]
-        sat = (n_genes - rank) / (n_genes - local_saturation[p])
-        if sat > 1.0 || sat < -1
-                sat = 1.0
-        elseif sat == 0.0
-            sat = 0.05
-        end
-        prob = logistic_sampling((0.0, abs(sat)))
-        cell_state[target] = p_direction * prob
+        max_saturation_delta = n_genes - local_saturation
+        max_rank_delta = (n_genes - rank) + 1
+        sat =  max_rank_delta / max_saturation_delta
+        #println(rank - local_saturation)
+        prob = p_direction * hill_signed(sat)
+        #new_prob = clamp(cell_state[target] * prob, 0.001,0.999)
+        new_prob = clamp(cell_state[target] + p_direction * prob, 0.1,0.999)
+        cell_state[target] = new_prob  
     end
     setfield!(cell, cell_layer, cell_state)
     return cell
@@ -315,8 +317,11 @@ function cycle_sample!(sample::SampleState, cycle::Int)::SampleState
     grn_set = sample.grn_set
     for cell in cells 
         state = cell.cycle_position
-        cycle_cell[state](cell, gene_state)
-        cycle_regulation!(cell,gene_state,grn_set)
+        if state != 6
+            cycle_cell[state](cell, gene_state)
+        else
+            cycle_regulation!(cell,gene_state,grn_set)
+        end 
     end
     sample.temporal_state.total_steps = cycle
     sample.temporal_state.current_step = cycle
@@ -330,8 +335,7 @@ function gene_pull!(
     genes::Union{String,Vector{String}},
     sample::SampleState,
     cycle::Int,
-    pull_layer::Symbol,
-    as_rank::Bool = true)::Vector{DataFrame}
+    pull_layer::Symbol)::Vector{DataFrame}
 
     gene_index = findall(g -> g ∈ genes, sample.gene_state.genes)
     cells = sample.cells
@@ -340,7 +344,7 @@ function gene_pull!(
         
         state = similar(cells, Float64)
         @inbounds @simd for j in eachindex(cells)
-            state[j] = pull_state(cells[j], pull_layer, gidx, as_rank)
+            state[j] = pull_state(cells[j], pull_layer, gidx)
         end
         @views gene_cycle[i][!, cycle] .= state
     end
@@ -352,12 +356,6 @@ end
 function pull_state(
     cell::CellState,
     layer::Symbol,
-    index::Int,
-    as_rank::Bool = true)
-    if as_rank
-        state = ranks_from_p(getfield(cell,layer))
-        return state[index]
-    else 
-        return getfield(cell,layer)[index]
-    end
+    index::Int)
+    return getfield(cell,layer)[index]  
 end
