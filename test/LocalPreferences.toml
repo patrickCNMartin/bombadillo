@@ -1,0 +1,13 @@
+# Skip heavy precompile workloads that exceed this workspace's 2 GiB cap.
+# The packages still work; their first calls JIT-compile instead.
+[GPUCompiler]
+precompile_workload = false
+
+[JET]
+precompile_workload = false
+
+[LLVM]
+precompile_workload = false
+
+[AllocCheck]
+precompile_workload = false

@@ -357,5 +357,17 @@ function pull_state(
     cell::CellState,
     layer::Symbol,
     index::Int)
-    return getfield(cell,layer)[index]  
+    return getfield(cell,layer)[index]
+end
+
+
+# Moved from visualization.jl (no plotting dependency)
+function delta_shift(pull::DataFrame)::Matrix
+    n_cells = size(pull, 1)
+    num_time = size(pull, 2)
+    delta_mat = zeros(Float64, n_cells, num_time)
+    for t in 2:num_time
+        @views delta_mat[:, t] .= pull[:, t] .- pull[:, t-1]
+    end
+    return delta_mat
 end

@@ -1,0 +1,17 @@
+[deps]
+AllocCheck = "9b6a8646-10ed-4001-bbdc-1d2f46dfbb1a"
+BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
+Bombadillo = "c63cb453-85e6-4fe8-b79d-dfe0bc8a1f63"
+JET = "c3a54625-cd67-489e-a8e7-0a5a0ff4e31b"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[sources]
+Bombadillo = {path = ".."}
+
+# Listed only so test/LocalPreferences.toml can switch off their precompile
+# workloads (preferences are only applied to packages named in the project).
+[extras]
+GPUCompiler = "61eb1bfa-7361-4325-ad38-22787b887f55"
+LLVM = "929cbde3-209d-540e-8aea-75f648917ca0"

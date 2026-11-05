@@ -1,7 +1,20 @@
 module Bombadillo
 
+using Random: Random, AbstractRNG, Xoshiro
 
+# New array-based core (genes × cells, Int16 counts, synchronous step)
+include("core/sampling.jl")
+include("core/network.jl")
+include("core/kinetics.jl")
+include("core/simulation.jl")
+include("core/step.jl")
+include("core/observe.jl")
 
+export Edge, RegNetwork, Programs, Kinetics, Simulation, Trajectory,
+    step!, run!, reset!, cell, set_level!, repressilator_network,
+    n_genes, n_cells
+
+# Legacy pipeline (to be ported onto the core, then removed)
 include("tissue_structs.jl")
 include("state_structs.jl")
 include("graphs.jl")
@@ -13,7 +26,12 @@ include("generate_genes.jl")
 include("generate_grn.jl")
 include("generate_samples.jl")
 include("cycle.jl")
-include("visualization.jl")
+
+# Plotting lives in ext/BombadilloPlotsExt.jl and is loaded automatically
+# when Plots is loaded alongside Bombadillo (`using Bombadillo, Plots`).
+function plot_tissue end
+function view_gene_cycle end
+function view_tissue_cycle end
 
 export Tissue,
     BaseTissue,

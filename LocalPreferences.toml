@@ -1,0 +1,4 @@
+# Skip DataFrames' precompile workload: it needs more memory than this
+# workspace's 2 GiB cap allows. DataFrames still works; first calls JIT-compile.
+[DataFrames]
+precompile_workload = false

@@ -1,4 +1,16 @@
+#-----------------------------------------------------------------------------#
+# Plots extension: loaded automatically when both Bombadillo and Plots are
+# loaded (`using Bombadillo, Plots`). Keeps Plots/GR out of the core install.
+#-----------------------------------------------------------------------------#
+module BombadilloPlotsExt
+
+using Bombadillo
+using Bombadillo: SampleState, Tissue
 using Plots
+using Statistics
+using StatsBase: mode
+using DataFrames
+
 function plot_tissue_2d_old(tissue::Tissue)
     coords = tissue.coordinates
     labels = tissue.cell_labels
@@ -22,7 +34,7 @@ end
 #-----------------------------------------------------------------------------#
 # New Viz function for cell states 
 #-----------------------------------------------------------------------------#
-function plot_tissue(sample::SampleState,
+function Bombadillo.plot_tissue(sample::SampleState,
     labels::Symbol = :cell_types;
     dim = 2)
     gr() # to be updated when I want to save plots latter
@@ -51,10 +63,7 @@ end
 # these are all very rough functions that I might not keep in the long run
 # I just want to see what it looks like at test a few ideas 
 #-----------------------------------------------------------------------------#
-using Plots
-using Statistics
-
-function view_gene_cycle(
+function Bombadillo.view_gene_cycle(
     sample::SampleState,
     gene_pull::Vector{DataFrame};
     sort::Bool = true,
@@ -112,14 +121,16 @@ function view_gene_cycle(
 end
 
 
-function view_tissue_cycle(
+function Bombadillo.view_tissue_cycle(
     sample::SampleState,
     gene_pull::Vector{DataFrame},
     output_path::String;
     dim::Int = 2,
     fps::Int = 10,
     markersize::Real = 3)
-    plotly()
+    # GR instead of plotly(): the plotly backend needs PlotlyBase/PlotlyKaleido
+    # to write frames, which were dropped to keep the install light.
+    gr()
     try
         coordinates = sample.tissue.coordinates
         x = getindex.(coordinates, 1)
@@ -194,13 +205,4 @@ function view_tissue_cycle(
     end
 end
 
-
-function delta_shift(pull::DataFrame)::Matrix
-    n_cells = size(pull, 1)
-    num_time = size(pull, 2)
-    delta_mat = zeros(Float64, n_cells, num_time)
-    for t in 2:num_time
-        @views delta_mat[:, t] .= pull[:, t] .- pull[:, t-1]
-    end
-    return delta_mat
-end
+end # module BombadilloPlotsExt
