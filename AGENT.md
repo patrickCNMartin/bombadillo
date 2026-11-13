@@ -19,7 +19,13 @@
 |---|---|---|
 | `AGENT.md` | what to do, and the state now | every session, first |
 | `docs/findings.md` | what was discovered: measurements, traps, probe results, superseded beliefs | when a rule here looks arbitrary, or before re-investigating something |
-| `docs/audit_log.md` | when and why each decision was taken — appended, never rewritten | **never by default** |
+| `docs/decisions/` | when and why each decision from an agent session was taken — one file per decision; `sh dev-skills/logging/log.sh` prints them as the audit log | **never by default** |
+| `docs/audit_log.md` | the audit log from before `docs/decisions/` — frozen, never edited | **never by default** |
+| `dev-skills/logging/SKILL.md` | how a decision is recorded, in the same commit as its work | when logging a decision |
+
+> **Decisions are logged only through `dev-skills/logging`:** one new file per decision in
+> `docs/decisions/`, in the same commit as its work, with no hash in it. A decision a person takes
+> without an agent goes in the pull request, not the log.
 
 ---
 
@@ -174,9 +180,10 @@ the problem wins. Say so and why.
 - **A deliberate shortcut carries a `# ponytail:` comment** naming the ceiling and the
   upgrade path, so it is a known cost rather than a mystery.
 - **Nothing about this project is written outside this repo** except scratch in
-  `/project/tmp`. The record is `AGENT.md`, `docs/findings.md` and `docs/audit_log.md`.
-- **Discoveries go to `docs/findings.md`; decisions go to `docs/audit_log.md`** (dated,
-  appended, never rewritten). Only a rule that changes behaviour comes back here.
+  `/project/tmp`. The record is `AGENT.md`, `docs/findings.md`, `docs/decisions/` and
+  `docs/audit_log.md` (frozen).
+- **Discoveries go to `docs/findings.md`; decisions go to `docs/decisions/`**, one file
+  each, through `dev-skills/logging`. Only a rule that changes behaviour comes back here.
 - **Tests:** `Test` stdlib, one file per concern, included from `test/runtests.jl`. JET
   and AllocCheck guard type stability and allocation in the core; `BOMBADILLO_QUICK=1`
   skips them for a fast loop, never for a final check.
@@ -192,8 +199,8 @@ the problem wins. Say so and why.
   from exports, the extension or tests), rules here that are no longer true, untested core
   paths, and `# ponytail:` debt.
 - **Report findings first; delete or fix only when told.**
-- **Record the outcome in `docs/audit_log.md`**: date, what was checked, what was cut, and
-  anything kept on purpose so the next audit does not re-flag it.
+- **Record the outcome as a decision, through `dev-skills/logging`**: what was checked, what
+  was cut, and anything kept on purpose so the next audit does not re-flag it.
 - **Quote a number (test count, timing, allocations) only from a run you did** this
   session, and say which command produced it.
 

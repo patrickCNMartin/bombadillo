@@ -2,6 +2,19 @@
 
 When and why each decision was taken. Appended, never rewritten. Not read by default.
 
+One entry per major decision or discovery:
+
+```
+## YYYY-MM-DD — <hash> — <title>
+**Discovered / Decided:** what.
+**Why:** the reasoning, including what was rejected.
+**Cost:** what it broke, or left open.
+```
+
+**The hash names the commit that holds the work**, so the entry is written after it, and says
+`uncommitted` until then. `dev-skills/logging` writes entries and fills in hashes. Entries above
+the `<!-- hashes from here -->` line predate hashes and carry none.
+
 ---
 
 ## 2026-11-05 — `AGENT.md` created
@@ -35,3 +48,19 @@ When and why each decision was taken. Appended, never rewritten. Not read by def
   `test.gif`.
 - **README:** corrected from "python module" to Julia; added install, plotting and test
   lines.
+
+<!-- hashes from here -->
+
+---
+
+## 2026-11-12 — uncommitted — decisions are logged by `dev-skills/logging`, with their commit's hash
+
+**Decided:** `dev-skills/logging` (tracked) writes audit-log entries and fills in their hashes.
+The work is committed first, locally, staging only the paths the decision touched; the entry
+follows in a commit of its own. `dev-skills/logging/pending.sh` lists entries whose hash is
+`uncommitted`, missing, or no commit in this repo. AGENT.md runs it at the start of every session,
+and the agent raises what it lists with the user before resolving anything. Nothing is pushed.
+
+**Why:** a decision is taken before its commit exists, so the hash was left for later and entries carried none. Asked for.
+
+**Cost:** a logged decision is two commits, the work and then the entry. Entries above `<!-- hashes from here -->` keep no hash; the check skips them.
